@@ -1,7 +1,14 @@
 
+
+# roughly: 100 years of data:
+# want 240 second song.
+# 
+# each year is 2.5 seconds
+# at 120 bpm, 2.5 seconds is 5 beats
+# 16 beat repeat is 
 global:
-    name: 'MarineHeatWaves'
-    title: 'MarineHeatWaves'
+    name: 'MarineHeatWaves_clim'
+    title: 'MarineHeatWaves_clim'
     output_path: 'output/MHW'
     bpm: 120.
     #Notes per beat is actually "years per musical beat". 
@@ -18,7 +25,7 @@ global:
     video_timerange: [2000., 2020.99999] 
     scroll: 0.
     annual_plot: True  
-    final_note_duration: 4
+    final_note_duration: 0.25
     hold_last_frame: False  # best to have too long than too short here!
 
     #background_colour: '#F0FFFF' # Azure (very white)
@@ -44,7 +51,8 @@ global:
 
 tracks:
   cnrm_temp:
-      longname: 'Temperture'
+      longname: 'Tempertare anomaly'
+      # longname: 'SSP1 1.9 - Violin'
       channel: 0
       units: r'$\degree$C'
       beats_per_year: *beats_per_year_anchor  
@@ -58,77 +66,20 @@ tracks:
         'Fmaj', 'Fmaj', 'Fmaj', 'Fmaj', 'Gmaj', 'Bbmaj', 'Cmaj', 'Cmaj',
       ]
       play_new_chords: True
-      data_paths: ['csv/CNRM_thetao_con.csv', ]
-      volume_paths:  ['csv/CNRM_thetao_con.csv', ]
-      time_range: [1976., 2070.99999]
+      data_paths: ['csv/CNRM_thetao_con_clim_4.csv', ]
+      volume_paths:  ['csv/CNRM_thetao_con_clim_4.csv', ]
+      time_range: [0., 1.99999]
       # type options [ shelve, nc, csv]
       data_type: 'csv'
-      data_key:  'thetao_con'
+      data_key:  'thetao_con_clim'
       data_kwargs: []
-      instrument: 'Piano'
-      music_range: [67, 102]
-      # data range: set min/max data range to match music range
-      data_range: [22., 33.]
-      plot_range: [22., 33.]
-        
-      moving_average: '0.01 years'
-      volume_range: [60, 110]
-      colour: '#87CEFA' # 'light blue'
-      pane: 1
-      y_label: ' ' 
-
-  cnrm_temp_bass:
-      longname: 'Temperture - Bass'
-      channel: 0
-      units: r'$\degree$C'
-      beats_per_year: *beats_per_year_anchor  
-      notes_per_beat: *notes_per_beat_anchor
-      beats_per_chord: *beats_per_chord_anchor 
-      quantize: *quantize_anchor
-      scales: *scales_anchor 
-      play_new_chords: True
-      data_paths: ['csv/CNRM_thetao_con.csv', ]
-      volume_paths:  ['csv/CNRM_thetao_con.csv', ]
-      time_range: [1976., 2070.99999]
-      # type options [ shelve, nc, csv]
-      data_type: 'csv'
-      data_key:  'thetao_con'
-      data_kwargs: []
-      instrument: 'bass'
+      instrument: 'Bass'
       music_range: [41, 67]
+
       # data range: set min/max data range to match music range
+      # blank means
       data_range: [22., 33.]
       plot_range: [22., 33.]
-        
-      moving_average: '0.1 years'
-      volume_range: [60, 110]
-      colour: '#87CEFA' # 'light blue'
-      pane: 1
-      y_label: ' ' 
-
-  cnrm_temp_anom:
-      longname: 'Tempertare anomaly'
-      channel: 0
-      units: r'$\degree$C'
-      beats_per_year: *beats_per_year_anchor  
-      notes_per_beat: *notes_per_beat_anchor
-      beats_per_chord: *beats_per_chord_anchor 
-      quantize: *quantize_anchor
-      scales: *scales_anchor 
-      play_new_chords: True
-      data_paths: ['csv/CNRM_thetao_con_anomaly.csv', ]
-      volume_paths:  ['csv/CNRM_thetao_con_anomaly.csv', ]
-      time_range: [1976., 2070.99999]
-      # type options [ shelve, nc, csv]
-      data_type: 'csv'
-      data_key:  'thetao_con_anom'
-      data_kwargs: []
-      instrument: 'Piano'
-      music_range: [67, 102]
-
-      # blank means
-      data_range: [-1., 4.]
-      plot_range: [-1., 4.]
         
       moving_average: '0.1 years'
       volume_range: [60, 110]
@@ -136,4 +87,4 @@ tracks:
       colour: '#87CEFA' # 'light blue'
       pane: 1
       y_label: ' ' #Nitrate, uM'
-
+ 

@@ -711,7 +711,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985], 
     ax3 = fig.add_axes([0.1, 0.3, 0.3, 0.4]) # (left, bottom, width, height) 
     ax3.set_facecolor((1., 1., 1., 0.)) # transparent
 
-    plot_past_year_just_anom_ts(datas_dict, dates_dict, target_time_key=date_key, window=1.5, clim_range=[1976,1985],
+    plot_past_year_just_anom_ts(datas_dict, dates_dict, target_time_key=date_key, window=1.5, clim_range=clim_range,
                 fig=fig, ax=ax3)
 
     print('saving:', date_string, fn)  
@@ -860,6 +860,52 @@ def export_csv(datas_dict, dates_dict, model, field):
     csv.close()
         
 
+def export_csv_clim(datas_dict, dates_dict, model, field,repeats=4,clim_range=[1976,1985]):
+    """
+    Export the climatology data as a csv.
+    repeats is there so that it can be done to music.
+    """
+    fn = folder('csv/')+model+'_'+field+'_clim'+'_'+str(repeats)+'.csv'
+    print('exporting csv', fn)
+    if os.path.exists(fn):
+        return 
+    txt = '# year, '+field +'_clim\n'
+    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    for repeat in range(repeats):
+        for doy in sorted(clim_doy.keys()):
+            doyd = float(repeat) +doy/366.
+            txt =  ''.join([txt, 
+                str(doyd), ',',
+                str(clim_doy[doy]), '\n'])
+        
+    csv = open(fn, 'w')
+    csv.write(txt)
+    csv.close()
+
+def export_csv_anomaly(datas_dict, dates_dict, model, field,clim_range=[1976,1985]):
+    """
+    Export the anomaly data as a csv.
+    """
+    fn = folder('csv/')+model+'_'+field+'_anomaly.csv'
+    print('exporting csv', fn)
+    if os.path.exists(fn):
+        return 
+    txt = '# year, '+field +'_anom\n'
+    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+
+    for tk in sorted(datas_dict.keys()):
+        (year, month, day) = tk
+        dat = datas_dict[tk]
+        dt = dates_dict[tk]
+        dcy = decimal_year(dt, year,month,day)
+        dat = dat - clim_datas[(month, day)]
+        txt =  ''.join([txt, 
+            str(dcy), ',',
+            str(dat), '\n'])
+                
+    csv = open(fn, 'w')
+    csv.write(txt)
+    csv.close()
 
 
 def main():
@@ -895,18 +941,24 @@ def main():
     print('datas_dict', datas_dict)
 
     export_csv(datas_dict, dates_dict, model, field)
+    export_csv_anomaly(datas_dict, dates_dict, model, field,clim_range=clim_range)
+    export_csv_clim(datas_dict, dates_dict, model, field,clim_range=clim_range)
 
-
+    return
     for year in range(1976, 2071):
         continue 
 #        print(year)
         plot_single_year_ts(datas_dict, dates_dict, plot_year=year,)
         plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=year, clim_range=clim_range)
-        plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=year, clim_range=[1976,1985])
+        plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=year, clim_range=clim_range)
 
     for fn in sorted(files):
         nc = Dataset(fn, 'r')
         iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=clim_range, field=field)
         nc.close()
 #        return
-main()    
+        
+    
+
+if __name__ == "__main__":
+    main()    
