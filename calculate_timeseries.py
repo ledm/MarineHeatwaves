@@ -7,6 +7,9 @@ from glob import glob
 from netCDF4 import Dataset,num2date
 import cftime
 from bisect import bisect
+from scipy import interpolate
+
+import os
 
 import numpy as np
 import cartopy
@@ -18,6 +21,9 @@ import cmocean
 from shelve import open as shopen
 from matplotlib.ticker import MaxNLocator
 
+from earthsystemmusic2.music_utils import folder
+#from .earthsystemmusic2 import music_utils as mutils 
+from earthsystemmusic2.climate_music_maker import climate_music_maker
 
 central_longitude = -14.368164721459744 #W #-160.+3.5
 central_latitude = -7.940978677133847 # S
@@ -286,7 +292,7 @@ def plot_single_year_ts(datas_dict, dates_dict, plot_year=1976):
     fig = pyplot.figure()
     pyplot.plot(x, y)
     pyplot.title(plot_year)
-    fn = 'images/single_year/'+str(plot_year)+'.png'
+    fn = folder('images/single_year/')+str(plot_year)+'.png'
     print('Saving', fn)
     pyplot.savefig(fn)
     pyplot.close()
@@ -367,11 +373,10 @@ def plot_past_year_just_anom_ts(datas_dict, dates_dict, target_time_key=(2000,1,
     ax.xaxis.label.set_color(axis_color)
     ax.title.set_color(axis_color)
 
-
     if returnfig:
         return fig, ax
 
-    fn = 'images/Just_anom_single_year/'+str(target_string)+'.png'
+    fn = folder('images/Just_anom_single_year/')+str(target_string)+'.png'
     print('Saving', fn)
     pyplot.savefig(fn)
     pyplot.close()
@@ -443,7 +448,7 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
     if returnfig:
         return fig, ax
 
-    fn = 'images/Just_anom_single_year/'+str(plot_year)+'.png'
+    fn = folder('images/Just_anom_single_year/')+str(plot_year)+'.png'
     print('Saving', fn)
     pyplot.savefig(fn)
     pyplot.close()
@@ -451,7 +456,7 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
 
 
 
-vmin=10.
+vmin = 10.
 vmax = 30.
 cmap = 'viridis'
 land_color = '#F5F5F5' #'#DCDCDC' # '#E0E0E0' ##F8F8F8'
@@ -542,25 +547,34 @@ def plot_globe(ax, nc=None, t=None, quick=True):
     return ax
 
 
-def calc_midoint(decimal_time, path):
+def calc_midoint(decimal_time, path, interp=None, window=0.25):
     """
     Calculates a panning value, assuming even distribution between two points.
     """
     times = np.array(sorted(path.keys()))
-    #coords = np.array([path[t] for t in times])
-    if decimal_time <= times.min():
-        return path[times.min()]
-    if decimal_time >= times.max():
-        return path[times.max()]
-    index = bisect(times, decimal_time)
+    coords = np.array([path[t] for t in times])
+    if interp == None:
+        if decimal_time <= times.min():
+            return path[times.min()]
+        if decimal_time >= times.max():
+            return path[times.max()]
+        index = bisect(times, decimal_time)
 
-    t0 = times[index -1]
-    t1 = times[index]
-    y0 = path[t0]
-    y1 = path[t1]
-    slope = (y1-y0)/(t1-t0)
-    intersect = y1 - slope*t1
-    return slope*decimal_time + intersect
+        t0 = times[index -1]
+        t1 = times[index]
+        y0 = path[t0]
+        y1 = path[t1]
+        slope = (y1-y0)/(t1-t0)
+        intersect = y1 - slope*t1
+        return slope*decimal_time + intersect
+    if interp == 'smooth':
+        x = np.linspace(decimal_time-window, decimal_time+window, 100,)
+        func1 = interpolate.interp1d(times, coords, kind='linear')
+        y = func1(x)
+        return np.mean(y)
+
+    func1 = interpolate.interp1d(times, coords, kind=interp)
+    return func1(decimal_time)
 
 
 
@@ -569,7 +583,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
     The main daily plot.
     """
 
-    fn = 'images/daily/daily'
+    fn = folder('images/daily/')+'daily'
 
     date_string = '-'.join([str(tt) for tt in date_key])
     dt = dates_dict[date_key]
@@ -595,7 +609,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
     fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
 
     # big globe
-
+    """
     # Panning route:
     ortho_path_x = {
             1976.: -25.,
@@ -642,14 +656,39 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
             1985: 1.4,
             2005: 1.1,
             }
+    """
+    # panning points:
+    pan={# name:           [  X,     Y,    L,    B,    W,    H ]
+        'far_out':         [ -25.,  -25.,  0.2,  0.1,  0.8,  0.8 ],
+        'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
+        'vbig':            [ -10.,  -10,   0.1,  -0.3, 1.6,  1.6 ],
+        'vbig_low':        [ -30,   -7.,   0.15, -0.7, 1.6,  1.6 ], 
+    }
+
+    pan_years = {
+        1970.: 'far_out',
+        1976.: 'far_out',
+        1978: 'big', 
+        1978.5: 'vbig',
+        1981: 'vbig_low',
+        }
+
+    ortho_path_x = {yr: pan[value][0] for yr, value in pan_years.items()}
+    ortho_path_y = {yr: pan[value][1] for yr, value in pan_years.items()}
+    axes_path_L = {yr: pan[value][2] for yr, value in pan_years.items()}
+    axes_path_B = {yr: pan[value][3] for yr, value in pan_years.items()}
+    axes_path_W = {yr: pan[value][4] for yr, value in pan_years.items()}
+    axes_path_H = {yr: pan[value][5] for yr, value in pan_years.items()}
+
     ortho_x = calc_midoint(dct, ortho_path_x)
     ortho_y = calc_midoint(dct, ortho_path_y)
-    ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
-
     axes_L = calc_midoint(dct, axes_path_L)
     axes_B = calc_midoint(dct, axes_path_B)
     axes_W = calc_midoint(dct, axes_path_W)
     axes_H = calc_midoint(dct, axes_path_H)
+
+
+    ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
 
     #ax2 = fig.add_axes([ 0.3, -0.1, 0.7, 1.2], projection=ortho_pro) # (left, bottom, width, height)
     ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
@@ -770,7 +809,7 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
     pyplot.xlim([x[0], x[-1]])
     pyplot.ylim([23.5, 30.])
 
-    fn = 'images/anom_year/anom_'+str(plot_year)+'.png'
+    fn = folder('images/anom_year/')+'anom_'+str(plot_year)+'.png'
     print('Saving', fn)
     pyplot.savefig(fn)
     pyplot.close()
