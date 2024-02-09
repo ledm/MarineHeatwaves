@@ -136,6 +136,8 @@ def find_corners(nc):
     Lower left, lat lon: (640, 1080)
     Upper right, lat lon: (664, 1103)
     """
+    if isinstance(nc, 'str'):
+        nc = Dataset(nc, 'r')
     lats = nc.variables['nav_lat'][:]
     lons = nc.variables['nav_lon'][:]
 
@@ -160,12 +162,12 @@ def find_corners(nc):
     print('lon:', new_lons.min(), new_lons.mean(), new_lons.max())
 
 
-def calc_mean_aimpa_temp(nc, model='CNRM'):
+def calc_mean_aimpa(nc, model='CNRM', field = 'thetao_con'):
     """
     Calculate the mean temperature in the AIMPA over the monthly data
     """
     if model == 'CNRM':
-        temp = nc.variables['thetao_con'][:, 0, 640:664, 1080:1103]
+        temp = nc.variables[field][:, 0, 640:664, 1080:1103]
         area = nc.variables['area'][640:664, 1080:1103]
 
     times = nc.variables['time_centered']
@@ -358,7 +360,7 @@ def plot_past_year_just_anom_ts(datas_dict, dates_dict, target_time_key=(2000,1,
     pyplot.plot(x, zeros-1, 'w', lw=0.5)
 
     pyplot.xlim([x[-1] - window, x[-1]])
-    pyplot.ylim([-1.5, 3.5])
+    pyplot.ylim([-1.5, 4.0])
 
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -439,12 +441,12 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
                 )
     pyplot.plot(x, np.array(y) - np.array(clim_y))
     pyplot.title(plot_year)
-    pyplot.plot(x, zeros, 'k', lw=0.5)
-    pyplot.plot(x, zeros+1, 'k', lw=0.5)
-    pyplot.plot(x, zeros-1, 'k', lw=0.5)
+    pyplot.plot(x, zeros, 'w', lw=0.5)
+    pyplot.plot(x, zeros+1, 'w', lw=0.5)
+    pyplot.plot(x, zeros-1, 'w', lw=0.5)
 
     pyplot.xlim([x[0], x[-1]])
-    pyplot.ylim([-3.5, 3.5])
+    pyplot.ylim([-1.5, 4.0])
     if returnfig:
         return fig, ax
 
@@ -456,12 +458,12 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
 
 
 
-vmin = 10.
-vmax = 30.
-cmap = 'viridis'
+vmins = {'thetao_con': 10.}
+vmaxs = {'thetao_con': 32.}
+cmaps = {'thetao_con': 'viridis'}
 land_color = '#F5F5F5' #'#DCDCDC' # '#E0E0E0' ##F8F8F8'
 
-def add_cbar(fig, ax=None):
+def add_cbar(fig, ax=None, field='thetao_con'):
     # Add the cbar at the bottom.
     if ax == None:
         ax = fig.add_axes([0.85, 0.2, 0.015, 0.6]) # (left, bottom, width, height)
@@ -469,9 +471,9 @@ def add_cbar(fig, ax=None):
     pyplot.sca(ax)
     x = np.array([[0., 1.], [0., 1.]])
     img = pyplot.pcolormesh(x,x,x,
-                            cmap=cmap,
-                            vmin=vmin,
-                            vmax=vmax)
+                            cmap=cmaps[field],
+                            vmin=vmins[field],
+                            vmax=vmaxs[field], )
     img.set_visible(False)
     ax.set_visible(False)
     
@@ -512,7 +514,7 @@ def add_mpa(ax, linewidth=1.7, draw_study_region=False):
 
 
 
-def plot_globe(ax, nc=None, t=None, quick=True):
+def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con'):
     pyplot.sca(ax)
     if quick:
         ax.add_feature(cfeature.OCEAN, zorder=0)
@@ -523,7 +525,7 @@ def plot_globe(ax, nc=None, t=None, quick=True):
         lats = nc.variables['nav_lat'][::binning]
         lons = nc.variables['nav_lon'][::binning]
 
-        data = nc.variables['thetao_con'][t, 0, ::binning, ::binning]
+        data = nc.variables[field][t, 0, ::binning, ::binning]
 
 #        data = np.ma.masked_where(data.mask + data < -1.80, data)
 
@@ -533,9 +535,9 @@ def plot_globe(ax, nc=None, t=None, quick=True):
                     data,
                     #transform=proj,
                     transform=ccrs.PlateCarree(),
-                    cmap=cmap,
-                    vmin=vmin, 
-                    vmax=vmax,
+                    cmap=cmaps[field],
+                    vmin=vmins[field], 
+                    vmax=vmaxs[field],
                     )
         ax.coastlines()
         ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=9)
@@ -578,7 +580,7 @@ def calc_midoint(decimal_time, path, interp=None, window=0.25):
 
 
 
-def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
+def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985], model='CNRM', field='thetao_con'):
     """
     The main daily plot.
     """
@@ -659,18 +661,26 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
     """
     # panning points:
     pan={# name:           [  X,     Y,    L,    B,    W,    H ]
-        'far_out':         [ -25.,  -25.,  0.2,  0.1,  0.8,  0.8 ],
+        'far_out':         [ -25.,  -25.,  0.3,  0.1,  0.8,  0.8 ],
         'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
-        'vbig':            [ -10.,  -10,   0.1,  -0.3, 1.6,  1.6 ],
-        'vbig_low':        [ -30,   -7.,   0.15, -0.7, 1.6,  1.6 ], 
+        'vbig':            [ -10.,  -10,   0.0,  -0.3, 1.6,  1.6 ],
+        'vbig_low':        [ -30,   -7.,   -0.15, -0.7, 1.6,  1.6 ],
+        'vbig_low1':        [ -20,   -17.,   -0.15, -0.7, 1.96,  1.96 ],
+        'vbig_low2':        [ -30,   -27.,   -0.15, -0.7, 1.6,  1.6 ],
+
+
     }
 
     pan_years = {
         1970.: 'far_out',
         1976.: 'far_out',
         1978: 'big', 
-        1978.5: 'vbig',
-        1981: 'vbig_low',
+        1980: 'vbig',
+        1985: 'vbig_low',
+        1990: 'vbig_low1',
+        2000: 'vbig_low2',
+        2001: 'far_out',
+        2005: 'big'
         }
 
     ortho_path_x = {yr: pan[value][0] for yr, value in pan_years.items()}
@@ -690,15 +700,14 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985]):
 
     ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
 
-    #ax2 = fig.add_axes([ 0.3, -0.1, 0.7, 1.2], projection=ortho_pro) # (left, bottom, width, height)
     ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
     quick=False
     ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick)
     if not quick:
-        #ax_cbar = fig.add_axes([0.85, 0.2, 0.05, 0.6]) # (left, bottom, width, height)
-        add_cbar(fig) #ax_cbar)
+        add_cbar(fig, field=field) #ax_cbar)
 
     # time series axes
+    
     ax3 = fig.add_axes([0.1, 0.3, 0.3, 0.4]) # (left, bottom, width, height) 
     ax3.set_facecolor((1., 1., 1., 0.)) # transparent
 
@@ -745,7 +754,7 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
         returnfig= False
     pyplot.plot(x, y, c='green', zorder=10, label=str(plot_year))
     pyplot.plot(x, clim_y, c='k', label = 'Climatology') 
-    pyplot.ylim([23.5, 30.])
+    pyplot.ylim([22.5, 32.])
 
 
     down_where = np.ma.masked_less(y, clim_y).mask
@@ -807,7 +816,7 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
     pyplot.title(plot_year)
     pyplot.legend()
     pyplot.xlim([x[0], x[-1]])
-    pyplot.ylim([23.5, 30.])
+    pyplot.ylim([22.5, 32.])
 
     fn = folder('images/anom_year/')+'anom_'+str(plot_year)+'.png'
     print('Saving', fn)
@@ -819,7 +828,7 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
 
 
 
-def iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=[1976,1985]):
+def iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=[1976,1985], field='thetao_con'):
 
     times = nc.variables['time_centered']
     dates = num2date(times[:], times.units, calendar=times.calendar)
@@ -830,21 +839,45 @@ def iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=[1976,1985]):
         daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=clim_range)
         return
 
+def export_csv(datas_dict, dates_dict, model, field):
+    fn = folder('csv/')+model+'_'+field+'.csv'
+    print('exporting csv', fn)
+    if os.path.exists(fn):
+        return 
+    txt = '# year, '+field +'\n'
+
+    for tk in sorted(datas_dict.keys()):
+        (year, month, day) = tk
+        dat = datas_dict[time_key]
+        dt = dates_dict[time_key]
+        dcy = decimal_year(dt, year,month,day)
+
+        txt =  ''.join([txt, 
+            str(dcy), ',',
+            str(dat), '\n'])
+    csv = open(fn, 'w')
+    csv.write(txt)
+    csv.close()
+        
+
+
+
 def main():
-    path = get_paths()['CNRM_hist']
+    model = 'CNRM'
+    path = get_paths()[model+'_hist']
     files = glob(path+'*/*/*_1d_*_grid_T.nc')
 
-    files.extend(glob(get_paths()['CNRM_ssp370']+'*/*/*_1d_*_grid_T.nc'))
-    #f0 = files[0]
-    #nc = Dataset(fn, 'r')
+    files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1d_*_grid_T.nc'))
 
-    shelvefn = 'shelves/CNRM_hist_temp.shelve'
+    
+    field = 'thetao_con'
+    #shelvefn = 'shelves/CNRM_hist_temp.shelve'
+    shelvefn = folder('shelves/')+model+'_'+field+'.shelve'
     finished_files, datas_dict, dates_dict = load_shelve(shelvefn)
 
     clim_range=[1976,1985]
-    #daily_plot(datas_dict, dates_dict, clim_range=clim_range)
-    #return
 
+    #find_corners(files[0])
     for fn in sorted(files):
         continue
         if fn in finished_files:
@@ -852,7 +885,7 @@ def main():
         print('loading:', fn)
         nc = Dataset(fn, 'r')
         #find_corners(nc)
-        data_dict, date_dict = calc_mean_aimpa_temp(nc)
+        data_dict, date_dict = calc_mean_aimpa(nc)
         datas_dict.update(data_dict)
         dates_dict.update(date_dict)        
         finished_files.append(fn)
@@ -861,8 +894,11 @@ def main():
     print('finished_files', finished_files)
     print('datas_dict', datas_dict)
 
+    export_csv(datas_dict, dates_dict, model, field)
+
+
     for year in range(1976, 2071):
-#        continue 
+        continue 
 #        print(year)
         plot_single_year_ts(datas_dict, dates_dict, plot_year=year,)
         plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=year, clim_range=clim_range)
@@ -870,7 +906,7 @@ def main():
 
     for fn in sorted(files):
         nc = Dataset(fn, 'r')
-        iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=clim_range)
+        iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=clim_range, field=field)
         nc.close()
 #        return
 main()    
