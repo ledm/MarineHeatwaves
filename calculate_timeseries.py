@@ -239,9 +239,12 @@ def calculate_clim(datas_dict, dates_dict, clim_range=[1976,1985]):
     """
     Calculate the climatology data.
     """
+    #create dicts:
     clim_datas = {}
     clim_doy = {}
+    clim_month = {m:[] for m in np.arange(1, 13, 1)}
 
+    # Fill dictionarys:
     for time_key in sorted(datas_dict.keys()):
         (year, month, day) = time_key
         if year < np.min(clim_range): 
@@ -263,13 +266,19 @@ def calculate_clim(datas_dict, dates_dict, clim_range=[1976,1985]):
         else:
             clim_doy[doy] = [dat, ]
 
+        clim_month[month].append(dat)
+
+    # calculate clims
     for key, values in clim_datas.items():
         clim_datas[key] = np.mean(values)
 
     for key, values in clim_doy.items():
         clim_doy[key] = np.mean(values)
 
-    return clim_datas, clim_doy
+    for key, values in clim_month.items():
+        clim_month[key] = np.mean(values)
+
+    return clim_datas, clim_doy, clim_month
 
 
 def plot_single_year_ts(datas_dict, dates_dict, plot_year=1976, field=None):
@@ -315,7 +324,7 @@ def plot_past_year_just_anom_ts(datas_dict, dates_dict, target_time_key=(2000,1,
     target_string = '-'.join([str(t) for t in target_time_key])
     target_dt = dates_dict[target_time_key]
     target_decimal = decimal_year(target_dt, target_time_key[0], target_time_key[1], target_time_key[2])
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    clim_datas, clim_doy, clim_month = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
 
     for time_key in sorted(datas_dict.keys()):
         (year, month, day) = time_key
@@ -398,7 +407,7 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
     x = []
     y = []
     clim_y = []
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    clim_datas, clim_doy, clim_month = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
 
     for time_key in sorted(datas_dict.keys()):
         (year, month, day) = time_key
@@ -464,31 +473,49 @@ def plot_single_year_just_anom_ts(datas_dict, dates_dict, plot_year=1976, clim_r
 
 
 vmins = {
-    'thetao_con': 10.,
-    'so_abs': 25.,
+    'thetao_con': 22.5,
+    'so_abs': 34.95,
     'O3_TA': 2000., 
+    'O3_pH':7.8,
     'N3_n': 0., 
-    'O3_c': 0.,   
-    'uo': -1.,
+    'O3_c': 2000.,   
+    'uo': -0.4,
     'vo': -1.,
+    'Ptot_c_result': 0.,
+    'Ztot_c_result': 0.,
+    'Ptot_Chl_result': 0.,
+    'Ptot_NPP_result': 0.,
     }
 vmaxs = {
     'thetao_con': 32.,
-    'so_abs': 38.,
+    'so_abs': 36.55,
     'O3_TA': 2500., 
-    'N3_n': 30., 
-    'O3_c': 5000.,   
-    'uo': 1.,
+    'O3_pH': 8.3,
+    'N3_n': 2., 
+    'O3_c': 2400.,   
+    'uo': 0.4,
     'vo': 1.,    
+    'Ptot_c_result': 1000.,
+    'Ztot_c_result': 100.,
+    'Ptot_Chl_result': 0.5,
+    'Ptot_NPP_result': 1000.,
     }
+
+cbar_vmin = {
+    'thetao_con': 22.5,
+    }
+cbar_vmax = {
+    'thetao_con': 32.0,
+    }
+
 cmaps = {
     'thetao_con': 'viridis',
-     'so_abs': 38.,
-    'O3_TA': 2500., 
-    'N3_n': 30., 
-    'O3_c': 5000.,   
-    'uo': 1.,
-    'vo': 1.,     
+#     'so_abs': 'viridis'
+#    'O3_TA': 2500., 
+#    'N3_n': 20., 
+#    'O3_c': 2500.,   
+#    'uo': 1.,
+#    'vo': 1.,     
     }
 land_color = '#F5F5F5' #'#DCDCDC' # '#E0E0E0' ##F8F8F8'
 
@@ -501,8 +528,8 @@ def add_cbar(fig, ax=None, field='thetao_con'):
     x = np.array([[0., 1.], [0., 1.]])
     img = pyplot.pcolormesh(x,x,x,
                             cmap=cmaps.get(field, 'viridis'),
-                            vmin=vmins.get(field, 0.),
-                            vmax=vmaxs.get(field, 1.))
+                            vmin=cbar_vmin.get(field, 0.),
+                            vmax=cbar_vmax.get(field, 1.))
     img.set_visible(False)
     ax.set_visible(False)
     
@@ -565,8 +592,8 @@ def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con'):
                     #transform=proj,
                     transform=ccrs.PlateCarree(),
                     cmap=cmaps.get(field, 'viridis'),
-                    vmin=vmins.get(field, 0.),
-                    vmax=vmaxs.get(field, 1.),
+                    vmin=cbar_vmin.get(field, 0.),
+                    vmax=cbar_vmax.get(field, 1.),
                     )
         ax.coastlines()
         ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=9)
@@ -748,14 +775,26 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_range=[1976,1985], 
     pyplot.close()
 
 
+def get_aligned_clim(dt, year, month, day, clim_datas, clim_doy, clim_month):
+    """
+    Get the rught climatological value for a day.
+    """
+    if len(clim_datas.keys()) < 25:
+        # monthly data:
+        return clim_month[month]
+    if (month, day) in clim_datas.keys():
+        return clim_datas[(month, day)]
+    assert 0
+
+
 def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_range=[1976,1985], field=None, fig=None, ax=None):
     """
     Save single plot.
     """
     x = []
     y = []
-#   clim_y = []
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    clim_y = []
+    clim_datas, clim_doy, clim_month = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
 
     for time_key in sorted(datas_dict.keys()):
         (year, month, day) = time_key
@@ -768,14 +807,12 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
         dcy = decimal_year(dt, year,month,day)
         x.append(dcy)
         y.append(dat)
+        clim = get_aligned_clim(dt, year,month,day, clim_datas,clim_doy, clim_month)
 
+        clim_y.append(clim)
     if not len(x):
         print('no time in ', field)
         return
-
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
-
-    clim_y = [clim_doy[i+1] for i, time in enumerate(x)]
 
     returnfig = True
     if fig is None:
@@ -841,12 +878,12 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
                 facecolor='red',
                 alpha=1-a/3.)
     """
-    pyplot.title(plot_year)
+    pyplot.title(field + ' '+plot_year)
     pyplot.legend()
     pyplot.xlim([x[0], x[-1]])
     pyplot.ylim([vmins.get(field, 0.), vmaxs.get(field, 1.)])
 
-    fn = folder('images/anom_year/'+field)+'anom_'+str(plot_year)+'.png'
+    fn = folder('images/anom_year/'+field)+field+'_anom_'+str(plot_year)+'.png'
     print('Saving', fn)
     pyplot.savefig(fn)
     pyplot.close()
@@ -898,7 +935,7 @@ def export_csv_clim(datas_dict, dates_dict, model, field,repeats=4,clim_range=[1
     if os.path.exists(fn):
         return 
     txt = '# year, '+field +'_clim\n'
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    clim_datas, clim_doy, clim_month = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
     for repeat in range(repeats):
         for doy in sorted(clim_doy.keys()):
             doyd = float(repeat) +doy/366.
@@ -919,7 +956,7 @@ def export_csv_anomaly(datas_dict, dates_dict, model, field,clim_range=[1976,198
     if os.path.exists(fn):
         return 
     txt = '# year, '+field +'_anom\n'
-    clim_datas, clim_doy = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
+    clim_datas, clim_doy, clim_month = calculate_clim(datas_dict, dates_dict, clim_range=clim_range)
 
     for tk in sorted(datas_dict.keys()):
         (year, month, day) = tk
@@ -936,24 +973,43 @@ def export_csv_anomaly(datas_dict, dates_dict, model, field,clim_range=[1976,198
     csv.close()
 
 
-def main(field = 'thetao_con',):
+def main(field = 'thetao_con', no_new_data=True):
     model = 'CNRM'
     path = get_paths()[model+'_hist']
+
     if field in ['thetao_con', 'so_abs']:
         files = glob(path+'*/*/*_1d_*_grid_T.nc')
         files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1d_*_grid_T.nc'))
+
     elif field in ['vo',]:
         files = glob(path+'*/*/*_1d_*_grid_V.nc')
         files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1d_*_grid_V.nc'))        
+
     elif field in ['uo',]:
         files = glob(path+'*/*/*_1d_*_grid_U.nc')
         files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1d_*_grid_U.nc'))      
-    else:
+
+    elif field in ['O3_pH', ]: # monthly:
+        files = glob(path+'*/*/*_1m_*_ptrc_T*.nc')
+        files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1m_*_ptrc_T*.nc'))
+
+    elif field in ['Ptot_c_result', 'Ztot_c_result', 'Ptot_Chl_result', 'Ptot_NPP_result']:
+#        print(path+'*/*/*_1m_*_diag_T*.nc')
+        files = glob(path+'*/*/*_1m_*_diag_T*.nc')
+        files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1m_*_diag_T*.nc'))
+
+    elif field in ['O3_c', 'N3_n',]:
         files = glob(path+'*/*/*_1d_*_ptrc_T.nc')
         files.extend(glob(get_paths()[model+'_ssp370']+'*/*/*_1d_*_ptrc_T.nc'))      
 
+    else:
+       print('field not recognised:', field)
+       assert 0
+    if not len(files): 
+        print('No files found.', field, files)
+        assert 0
+
     failures=[]
-    
     #shelvefn = 'shelves/CNRM_hist_temp.shelve'
     shelvefn = folder('shelves/') + model + '_' + field + '.shelve'
     finished_files, datas_dict, dates_dict = load_shelve(shelvefn)
@@ -962,7 +1018,8 @@ def main(field = 'thetao_con',):
 
     #find_corners(files[0])
     for fn in sorted(files):
-        #continue
+        if no_new_data:
+            continue
         if fn in finished_files:
             continue
         print('loading:', fn)
@@ -999,30 +1056,30 @@ def main(field = 'thetao_con',):
         plot_single_year_anomaly_ts(datas_dict, dates_dict, field=field, plot_year=year, clim_range=clim_range)
    
     print('Failures:', failures)
-    return
+    return failures
     for fn in sorted(files):
         nc = Dataset(fn, 'r')
         iterate_daily_plots(nc, datas_dict, dates_dict, clim_range=clim_range, field=field)
         nc.close()
 #        return
         
-    
+def  run_all():
+    failures = {}
+
+    for field in ['Ptot_c_result', 'Ztot_c_result', 'Ptot_Chl_result', 'Ptot_NPP_result', 'O3_pH']:
+         failures[field] = main(field=field)
+#    for field in ['O3_c', 'uo', 'vo', 'N3_n', 'thetao_con', 'so_abs']:
+#        failures[field] = main(field = field)
+    print('Failures:', failures)
+
+#   main(field='O3_c')
+#   main(field='uo')
+#   main(field='vo')
+#   main(field='N3_n') 
+#   main(field='thetao_con')
+#   main(field='so_abs')
+
 
 if __name__ == "__main__":
-
-    #main(field='so_abs')
-    #main(field='O3_TA') 
-    main(field='O3_c')
-
-    main(field='uo')
-    main(field='vo')
-
-    main(field='N3_n') 
-
-    main(field='uo')
-    main(field='vo')       
-
-    main(field='thetao_con')
-    main(field='so_abs')
-
+    run_all()
 
