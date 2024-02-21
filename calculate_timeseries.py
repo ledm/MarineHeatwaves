@@ -42,7 +42,7 @@ pc_proj=cartopy.crs.PlateCarree()
 #add section turning on and off various axes with music.
 #Make MPA red when over threshold.
 
-cm_bins = 19
+#cm_bins = 19
 vmins = {
     'thetao_con': 22.5,
     'so_abs': 34.95,
@@ -103,14 +103,15 @@ anom_maxs = {
     # 'Ptot_NPP_result': 0.,                
     }
 cbar_vmin = {
-    'thetao_con': 22.5,
+    'thetao_con': 10.0,
     }
 cbar_vmax = {
-    'thetao_con': 32.0,
+    'thetao_con': 31.0,
     }
+cm_bins = 21
 
 cmaps = {
-    'thetao_con': 'viridis',
+    'thetao_con': 'plasma', #'viridis',
 #     'so_abs': 'viridis'
 #    'O3_TA': 2500., 
 #    'N3_n': 20., 
@@ -411,6 +412,14 @@ def smooth_axes(x, y, interp='nearest'):
     return new_x, func1(new_x)
 
 
+def fill_between(
+        fig, ax, 
+        ):
+    """
+    Do the fill between stuff?
+    """
+    
+
 def plot_past_year_just_anom_ts(datas_dict, dates_dict, 
                                 target_time_key=(2000,1,1), 
                                 window=2.5, # years
@@ -473,19 +482,27 @@ def plot_past_year_just_anom_ts(datas_dict, dates_dict,
     upwhere = np.ma.masked_greater(anom, 0.).mask
 
     if plot_type=='anom':
+     
         if np.sum(downwhere):
+            norm = matplotlib.colors.Normalize(vmin=anom_mins[field], vmax=0.)
+            rgba_colors = [cm.cool(norm(y_val), 10 ) for y_val in anom]# if downwhere]
+            
             pyplot.fill_between(x,
                     zeros,
                     anom,
+                    color=rgba_colors,
                     where = downwhere,
-                    facecolor='dodgerblue',
+                    #facecolor='dodgerblue',
                     )
         if np.sum(upwhere):
+            norm = matplotlib.colors.Normalize(vmin=0., vmax=anom_maxs[field])
+            rgba_colors = [cm.cool(norm(y_val), 10 ) for y_val in anom]# if upwhere]            
             pyplot.fill_between(x,
                     anom,
                     zeros,
                     where = upwhere,
-                    facecolor='#e2062c', # candy apple red
+                    color=rgba_colors,
+                    #facecolor='#e2062c', # candy apple red
                     )
         pyplot.plot(clim_x, np.array(y) - np.array(clim_y), 'purple', lw=0.7)
         pyplot.plot(x, zeros, 'w', lw=0.5)
@@ -499,18 +516,25 @@ def plot_past_year_just_anom_ts(datas_dict, dates_dict,
             pyplot.ylim([anom_mins[field], anom_maxs[field]])
     else:
         if np.sum(downwhere):
+            norm = matplotlib.colors.Normalize(vmin=vmins[field], vmax=vmaxs[field])
+            rgba_colors = [cm.cool(norm(y_val), 10 ) for y_val in y]# if downwhere]
+
             pyplot.fill_between(x,
                     y,
                     clim_y,
+                    color=rgba_colors,
                     where = downwhere,
-                    facecolor='dodgerblue',
+                    #facecolor='dodgerblue',
                     )
         if np.sum(upwhere):
+            norm = matplotlib.colors.Normalize(vmin=vmins[field], vmax=vmaxs[field])
+            rgba_colors = [cm.hot(norm(y_val), 10 ) for y_val in y ]# if upwhere]            
             pyplot.fill_between(x,
                     clim_y,
                     y,
+                    color=rgba_colors,
                     where = upwhere,
-                    facecolor='#e2062c', # candy apple red
+                    #facecolor='#e2062c', # candy apple red
                     )
         pyplot.plot(x, y, 'purple', lw=0.7)
         pyplot.plot(clim_x, clim_y, 'k', lw=0.7)
@@ -862,6 +886,8 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     dct = decimal_year(dt, year,month,day)
 
     fn = ''.join([fn, '_', date_string])+ '.png'
+    if os.path.exists(fn):
+        return
 
     fig = pyplot.figure(facecolor='black')
     dpi = 100. 
@@ -1134,7 +1160,6 @@ def iterate_daily_plots(nc, datas_dict, dates_dict, clim_stuff=(), clim_range=[1
     dates = num2date(times[:], times.units, calendar=times.calendar)
 
     for t, dt in enumerate(dates[:]):
-
         date_key = (dt.year, dt.month, dt.day)
         daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range)
         #return
@@ -1333,14 +1358,26 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
                 datas_dict[field][time_key] = new_val
 
         if method == 'linear':
-                new_decimal_times = {}
-                for dkey,date in dates_dict[field].items():
-                    new_decimal_times = decimal_year(date, dkey[0], dkey[1], dkey[2])] = dkey
-                dec_times = sorted(new_decimal_times.keys())
-                y = [dc for dc in dec_times]
+            new_decimal_times = {}
+            for dkey,date in dates_dict[field].items():
+                new_decimal_times[decimal_year(date, dkey[0], dkey[1], dkey[2])] = dkey
+            
+            dec_times = sorted(new_decimal_times.keys())
+            y = [datas_dict[field][new_decimal_times[dc]] for dc in dec_times]
 
-                func1 = interpolate.interp1d(dec_times, y, kind='linear')
+            func1 = interpolate.interp1d(dec_times, y, kind='linear') #,bounds_error=False, fill_value=0.)
+            for dkey, date in dates_dict['thetao_con'].items():
+                thetao_decimal_times = decimal_year(date, dkey[0], dkey[1], dkey[2])
+                if thetao_decimal_times < dec_times[0]:
+                    thetao_decimal_times = dec_times[0]
+                elif thetao_decimal_times > dec_times[-1]:
+                    thetao_decimal_times = dec_times[-1]  
+                new_val = func1(thetao_decimal_times)
 
+                datas_dict[field][dkey] = new_val
+                dates_dict[field][dkey] = date
+
+                #print( dkey, date, new_val)
 
 
 
@@ -1349,7 +1386,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
         clim_datas, clim_doy, clim_month = calculate_clim(datas_dict[field], dates_dict[field], clim_range=clim_range)
         clim_stuff[field] = (clim_datas, clim_doy, clim_month)
 
-    for fn in sorted(temp_files)[-11:]:
+    for fn in sorted(temp_files)[-15:]:
         nc = Dataset(fn, 'r')
         iterate_daily_plots(nc, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con')
         nc.close()
