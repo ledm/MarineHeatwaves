@@ -23,12 +23,14 @@ import cmocean
 from shelve import open as shopen
 from matplotlib.ticker import MaxNLocator
 from matplotlib import cm
+import nctoolkit
+
 
 from earthsystemmusic2.music_utils import folder
 #from .earthsystemmusic2 import music_utils as mutils 
 from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily9'
+daily_count = 'daily10'
 
 
 central_longitude = -14.368164721459744 #W #-160.+3.5
@@ -41,19 +43,10 @@ pc_proj=cartopy.crs.PlateCarree()
 #mpa_lat_corners = [central_latitude-mpa_radius, central_latitude-mpa_radius, central_latitude+mpa_radius, central_latitude+mpa_radius, central_latitude-mpa_radius]
 
 #TO DO:
-#add section turning on and off various axes with music.
-# Make axes move as needed. 
-#Scenario in title
-#Legend
-#Same colour in rings
-#Remove white in images
-#Rings are violins
-
 temperature_anom_cm = cm.hot_r
 temperature_anom_norm = matplotlib.colors.Normalize(vmin=1, vmax=3.5)
 temperature_bins = 5 
 
-#cm_bins = 19
 vmins = {
     'thetao_con': 22.5,
     'so_abs': 34.95,
@@ -115,14 +108,22 @@ anom_maxs = {
     }
 cbar_vmin = {
     'thetao_con': 5.0,
+    'thetao_con_anomaly': -4.,
     }
 cbar_vmax = {
     'thetao_con': 31.0,
+    'thetao_con_anomaly': 4.,
     }
-cm_bins = 26
+
+cm_bins = {
+    'thetao_con': 26,
+    'thetao_con_anomaly': 24,
+}
 
 cmaps = {
     'thetao_con': 'plasma', #'viridis',
+    'thetao_con_anomaly': 'seismic', #'viridis',
+
 #     'so_abs': 'viridis'
 #    'O3_TA': 2500., 
 #    'N3_n': 20., 
@@ -132,7 +133,7 @@ cmaps = {
     }
 land_color = '#D3D3D3' #'#F5F5F5' #'#DCDCDC' # '#E0E0E0' ##F8F8F8'
 
-def mnStr(month):
+def mn_str(month):
     mn = '%02d' %  month
     return mn
 
@@ -919,20 +920,31 @@ def set_axes_alpha(fig, ax, alpha=1.,axes_color='white'):
     return fig, ax
 
 
-def add_cbar(fig, ax=None, field='thetao_con'):
-    # Add the cbar at the bottom.
+def add_cbar(fig, ax=None, field='thetao_con', globe_type=globe_type):
+    """
+    Add a color bar on the side.
+    """
     if ax == None:
         ax = fig.add_axes([0.85, 0.2, 0.015, 0.6]) # (left, bottom, width, height)
 
     pyplot.sca(ax)
     x = np.array([[0., 1.], [0., 1.]])
 
-    cmap = cm.get_cmap(cmaps.get(field, 'viridis'), cm_bins)    # 11 discrete colors
-
+    if globe_type=='ts':
+        cmap = cm.get_cmap(cmaps.get(field, 'viridis'), cm_bins[field])    # 11 discrete colors
+        vmin=cbar_vmin.get(field, 0.)
+        vmax=cbar_vmax.get(field, 1.)
+                    
+    elif globe_type=='anomaly':
+        anom_field = field+'_anomaly'
+        cmap = cm.get_cmap(cmaps.get(anom_field, 'viridis'), cm_bins[anom_field])    # 11 discrete colors        
+        vmin=cbar_vmin.get(anom_field, 0.)
+        vmax=cbar_vmax.get(anom_field, 1.)
+                    
     img = pyplot.pcolormesh(x,x,x,
                             cmap=cmap,
-                            vmin=cbar_vmin.get(field, 0.),
-                            vmax=cbar_vmax.get(field, 1.))
+                            vmin=vmin,
+                            vmax=vmax)
     img.set_visible(False)
     ax.set_visible(False)
     
@@ -997,22 +1009,21 @@ def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_col
 
 
 
-def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con'):
+def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_type='ts', clim_nc=None):
+    """
+    Add the globe to the axes.
+    """
     pyplot.sca(ax)
+    binning=1
+    lats = nc.variables['nav_lat'][::binning]
+    lons = nc.variables['nav_lon'][::binning]
     if quick:
         ax.add_feature(cfeature.OCEAN, zorder=0)
         ax.add_feature(cfeature.LAND, zorder=0, edgecolor='black')
-    else:
-        #c = Dataset(bathy_fn, 'r')
-        binning=1
-        lats = nc.variables['nav_lat'][::binning]
-        lons = nc.variables['nav_lon'][::binning]
+    elif globe_type=='ts':
 
         data = nc.variables[field][t, 0, ::binning, ::binning]
-
-#        data = np.ma.masked_where(data.mask + data < -1.80, data)
-
-        cmap = cm.get_cmap(cmaps.get(field, 'viridis'), cm_bins)    # 11 discrete colors
+        cmap = cm.get_cmap(cmaps.get(field, 'viridis'),  cm_bins[field])    # 11 discrete colors
 
         pyplot.pcolormesh(
                     lons,
@@ -1024,8 +1035,24 @@ def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con'):
                     vmin=cbar_vmin.get(field, 0.),
                     vmax=cbar_vmax.get(field, 1.),
                     )
-        ax.coastlines()
-        ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=9)
+    elif globe_type=='anomaly':
+
+        data = nc.variables[field][t, 0, ::binning, ::binning]
+        clim = clim_nc.variables[field][t, ::binning, ::binning]
+        anom_field = field+'_anomaly'
+        cmap = cm.get_cmap(cmaps.get(anom_field, 'viridis'), cm_bins[anom_field])    # 11 discrete colors        
+        pyplot.pcolormesh(
+                    lons,
+                    lats,
+                    data - clim,
+                    #transform=proj,
+                    transform=ccrs.PlateCarree(),
+                    cmap=cmap,
+                    vmin=cbar_vmin.get(anom_field, 0.),
+                    vmax=cbar_vmax.get(anom_field, 1.),
+                    )        
+    ax.coastlines()
+    ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=9)
 
     ax.set_global()
     xlocs = [-150., -120., -90., -60., -30., 0., 30., 60., 90., 120., 150., 180., ]
@@ -1272,25 +1299,32 @@ def plot_legend(
 
     return fig, ax
 
-def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], model='CNRM', field='thetao_con'):
+
+def get_image_path(date_key, dt):
+    """
+    Get a predeinfed path name
+    """
+    fn = folder('images/'+daily_count+'/')+'daily'
+    date_string = '-'.join([mn_str(tt) for tt in date_key])
+    fn = ''.join([fn, '_', date_string])+ '.png'
+    return fn
+
+
+def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], model='CNRM', field='thetao_con', clim_nc=None):
     """
     The main daily plot.
     returns image path
     """
-    fn = folder('images/'+daily_count+'/')+'daily'
-
-    date_string = '-'.join([mnStr(tt) for tt in date_key])
-    #print(dates_dict.keys())
     dt = dates_dict[field][date_key]
-    (year, month, day) = date_key
-    dct = decimal_year(dt, year,month,day)
-
-    fn = ''.join([fn, '_', date_string])+ '.png'
+    fn =  get_image_path(date_key, dt)
     if os.path.exists(fn):
         return fn
-    scenario = 'Historical'
-    if date_key[0]>=2015:
-        scenario = 'SSP3-7.0'
+    
+    date_string = '-'.join([mn_str(tt) for tt in date_key])
+    (year, month, day) = date_key
+    dct = decimal_year(dt, year,month,day)
+   
+
     
 
     fig = pyplot.figure(facecolor='black')
@@ -1431,13 +1465,13 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
     ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
     quick=False
-    ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick)
+    globe_type='anomaly'
+    ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick, globe_type=globe_type,clim_nc=clim_nc)
 
     #if datas_dict['thetao_con'][date_key]
     ax2 = add_mpa(ax2, heatwaves=heatwaves)
 
-    if not quick:
-        add_cbar(fig, field=field) #ax_cbar)
+    add_cbar(fig, field=field,  globe_type=globe_type) #ax_cbar)
 
     # time series axes
     # Music is:
@@ -1445,10 +1479,6 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     # synth bass: Ptot_c
     # tops: pH
     # high Synth: Ztot
-    
-
-
-
     axes_alphas = {
         'thetao_con': {1970: 0., 1976.:0., 1976.15:1, 2075:1., 2076: 0.},
         'O3_pH': {1970: 0., 1976.5:1, 1992:1,  2020:1, 2021:0., 2051:0, 2052:1, 2075:1.,  2076: 0.},
@@ -1708,6 +1738,9 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
             #'weight': 'bold',
             'size': 14,
             }
+    scenario = 'Historical'
+    if year>=2015:
+        scenario = 'SSP3-7.0'    
     fig.text(left, 0.9, ' '.join([date_string, scenario]), fontdict=font)
 
     print('saving:', date_string, fn)  
@@ -1796,12 +1829,60 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
     pyplot.close()
 
 
+
+
+def get_clim_nc(fn, dates, field, clim_range, model='CNRM'):
+    """
+    returns or calculates a netcdf of the climatalogical surface field.
+    """
+    clim_range_str = '-'.join([str(inm(c)) for c in clim_range])
+    month_str = mn_str(dates[0].month)
+
+    output_path = folder(['netcdf_clim', model, field, clim_range_str, '/'])
+    output_path = ''.join([output_path, model, '-',field, '-', clim_range_str, '-', month_str, '.nc'])
+
+    if os.path.exists(output_path):
+        return output_path
+
+    path_list =  get_file_list(model, field, ssp=None, remove_2015=True)
+    path_restricted = []
+
+    # curate a short list:
+    clim_years = np.arange(clim_range[0], clim_range[1]+1)
+    for fn in path_list:
+        yr = int(fn.split('/')[-3])
+        mn = fn.split('/')[-2]
+        if yr not in clim_years:
+            continue
+        if mn is not month_str:
+            continue
+        path_restricted.append(fn)
+    print(field, model, path_restricted)  
+    if len(path_restricted) != len(clim_years):
+        assert 0
+    ds = nctoolkit.open_data(path_restricted)
+    ds.subset(years = clim_years, variables = field)
+    ds = ds.top()
+    ds.tmean("day")
+    ds.to_nc(output_path)
+    return output_path
+
+
+
+
+
+
+
 def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], field='thetao_con', plot_every_days=9):
 
     nc = Dataset(fn, 'r')
 
     times = nc.variables['time_centered']
     dates = num2date(times[:], times.units, calendar=times.calendar)
+
+    # loading climatollogy map:
+    clim_nc_fn = get_clim_nc(fn, dates, field, clim_range)
+    clim_nc = Dataset(clim_nc_fn, 'r')
 
     images = []
     for t, dt in enumerate(dates[:]):
@@ -1815,9 +1896,10 @@ def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1
         time_delta = dt-cftime.DatetimeGregorian(1976, 1, 1, 12., 0, 0, 0)
         if time_delta.days % plot_every_days: 
             continue
-        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range)
+        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_nc=clim_nc)
         images.append(img)
     nc.close()
+    clim_nc.close()
     return images
         #return
 
@@ -1921,7 +2003,8 @@ def get_file_list(model, field, ssp='ssp370', remove_2015=True):
        assert 0
 
     files = glob(path_hist+'*/*/'+ suffix)
-    files.extend(glob(path_ssp+'*/*/'+ suffix))
+    if spp:
+        files.extend(glob(path_ssp+'*/*/'+ suffix))
     
     if remove_2015:
         remove_2015 = model+'_hist/2015/'
@@ -2045,6 +2128,8 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     for field in ['thetao_con', 'O3_pH', 'Ptot_c_result', 'Ztot_c_result']:
         clim_datas, clim_doy, clim_month = calculate_clim(datas_dict[field], dates_dict[field], clim_range=clim_range)
         clim_stuff[field] = (clim_datas, clim_doy, clim_month)
+
+
 
 
 
