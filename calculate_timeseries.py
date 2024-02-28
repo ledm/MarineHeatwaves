@@ -23,8 +23,8 @@ import cmocean
 from shelve import open as shopen
 from matplotlib.ticker import MaxNLocator
 from matplotlib import cm
-import nctoolkit
-
+#import nctoolkit
+import pickle
 
 from earthsystemmusic2.music_utils import folder
 #from .earthsystemmusic2 import music_utils as mutils 
@@ -108,11 +108,11 @@ anom_maxs = {
     }
 cbar_vmin = {
     'thetao_con': 5.0,
-    'thetao_con_anomaly': -4.,
+    'thetao_con_anomaly': -10.,
     }
 cbar_vmax = {
     'thetao_con': 31.0,
-    'thetao_con_anomaly': 4.,
+    'thetao_con_anomaly': 10.,
     }
 
 cm_bins = {
@@ -920,7 +920,7 @@ def set_axes_alpha(fig, ax, alpha=1.,axes_color='white'):
     return fig, ax
 
 
-def add_cbar(fig, ax=None, field='thetao_con', globe_type=globe_type):
+def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts'):
     """
     Add a color bar on the side.
     """
@@ -1009,7 +1009,7 @@ def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_col
 
 
 
-def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_type='ts', clim_nc=None):
+def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_type='ts', clim_dat=None):
     """
     Add the globe to the axes.
     """
@@ -1038,13 +1038,13 @@ def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_typ
     elif globe_type=='anomaly':
 
         data = nc.variables[field][t, 0, ::binning, ::binning]
-        clim = clim_nc.variables[field][t, ::binning, ::binning]
+        #clim = clim_nc.variables[field][t, ::binning, ::binning]
         anom_field = field+'_anomaly'
         cmap = cm.get_cmap(cmaps.get(anom_field, 'viridis'), cm_bins[anom_field])    # 11 discrete colors        
         pyplot.pcolormesh(
                     lons,
                     lats,
-                    data - clim,
+                    data - clim_dat,
                     #transform=proj,
                     transform=ccrs.PlateCarree(),
                     cmap=cmap,
@@ -1310,7 +1310,7 @@ def get_image_path(date_key, dt):
     return fn
 
 
-def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], model='CNRM', field='thetao_con', clim_nc=None):
+def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], model='CNRM', field='thetao_con', clim_dat=None):
     """
     The main daily plot.
     returns image path
@@ -1466,7 +1466,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
     quick=False
     globe_type='anomaly'
-    ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick, globe_type=globe_type,clim_nc=clim_nc)
+    ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick, globe_type=globe_type,clim_dat=clim_dat)
 
     #if datas_dict['thetao_con'][date_key]
     ax2 = add_mpa(ax2, heatwaves=heatwaves)
@@ -1831,46 +1831,74 @@ def plot_single_year_anomaly_ts(datas_dict, dates_dict, plot_year=1976, clim_ran
 
 
 
-def get_clim_nc(fn, dates, field, clim_range, model='CNRM'):
+def get_clim_dat(fn, date_key, field, clim_range, model='CNRM'):
     """
     returns or calculates a netcdf of the climatalogical surface field.
     """
-    clim_range_str = '-'.join([str(inm(c)) for c in clim_range])
-    month_str = mn_str(dates[0].month)
+    clim_range_str = '-'.join([str(int(c)) for c in clim_range])
+    month_str = mn_str(date_key[1])
+    day_str = mn_str(date_key[2])
 
-    output_path = folder(['netcdf_clim', model, field, clim_range_str, '/'])
-    output_path = ''.join([output_path, model, '-',field, '-', clim_range_str, '-', month_str, '.nc'])
+    output_path = folder(['pickles', model, field, clim_range_str, '/'])
+    output_path = ''.join([output_path, model, '-',field, '-', clim_range_str, '_', month_str, '-', day_str, '.pkl'])
 
     if os.path.exists(output_path):
-        return output_path
+        with open(output_path, 'rb') as pfile:
+            data = pickle.load(pfile)
+        return data
 
     path_list =  get_file_list(model, field, ssp=None, remove_2015=True)
     path_restricted = []
 
     # curate a short list:
     clim_years = np.arange(clim_range[0], clim_range[1]+1)
-    for fn in path_list:
+    for fn in sorted(path_list):
+        #print(fn.split('/'))
         yr = int(fn.split('/')[-3])
         mn = fn.split('/')[-2]
+        #print(yr, mn, month_str)       
         if yr not in clim_years:
             continue
-        if mn is not month_str:
+        #print('found year, ', yr, mn)
+        if mn == month_str:
+            pass
+        else:
             continue
+        #print('found one:', fn, yr, mn)
         path_restricted.append(fn)
-    print(field, model, path_restricted)  
+
+    print(field, model, path_restricted, clim_years)  
     if len(path_restricted) != len(clim_years):
         assert 0
-    ds = nctoolkit.open_data(path_restricted)
-    ds.subset(years = clim_years, variables = field)
-    ds = ds.top()
-    ds.tmean("day")
-    ds.to_nc(output_path)
-    return output_path
 
+    print('calculating clim:', date_key[1], date_key[2], path_restricted[0])
+    nc = Dataset(path_restricted[0], 'r')
+    data = nc.variables[field][date_key[2]-1, 0, :, :]
+    nc.close()
 
+    count = 1
+    for fn in path_restricted[1:]:
+        print('calculating clim:', date_key[1], date_key[2], fn)
+        nc = Dataset(fn, 'r')
+        data += nc.variables[field][date_key[2]-1, 0, :, :]
+        nc.close()        
+        count+=1
+    data = data/count
+    with open(output_path, 'wb') as pfile:
+        pickle.dump(data, pfile)
+    return data
 
+    # ds = nctoolkit.open_data(path_restricted)
+    # #ds.subset(years = range(clim_range[0], clim_range[1]+1))
+    # ds.subset(month=date_key[1], day=date_key[2])
+    # ds.subset(variables = field)
+    # ds.merge("time")
+    # ds.top()
+    # ds.tmean("day")
+    # nctoolkit.options(cores = 6)
 
-
+    # ds.to_nc(output_path)
+    # return output_path
 
 
 def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], field='thetao_con', plot_every_days=9):
@@ -1879,10 +1907,6 @@ def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1
 
     times = nc.variables['time_centered']
     dates = num2date(times[:], times.units, calendar=times.calendar)
-
-    # loading climatollogy map:
-    clim_nc_fn = get_clim_nc(fn, dates, field, clim_range)
-    clim_nc = Dataset(clim_nc_fn, 'r')
 
     images = []
     for t, dt in enumerate(dates[:]):
@@ -1896,10 +1920,15 @@ def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1
         time_delta = dt-cftime.DatetimeGregorian(1976, 1, 1, 12., 0, 0, 0)
         if time_delta.days % plot_every_days: 
             continue
-        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_nc=clim_nc)
+        
+        # loading climatollogy map:
+        clim_dat = get_clim_dat(fn, date_key, field, clim_range)
+        #clim_dat = Dataset(clim_dat_fn, 'r')       
+        #clim_dat.close()
+
+        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat)
         images.append(img)
     nc.close()
-    clim_nc.close()
     return images
         #return
 
@@ -1977,9 +2006,6 @@ def get_file_list(model, field, ssp='ssp370', remove_2015=True):
     """
     Get a list of netcdfile file paths.
     """
-    path_hist = get_paths()[model+'_hist']
-    path_ssp = get_paths()[model+'_'+ssp]
-
     if field in ['thetao_con', 'so_abs']:
         suffix  = '*_1d_*_grid_T.nc'
 
@@ -2002,8 +2028,11 @@ def get_file_list(model, field, ssp='ssp370', remove_2015=True):
        print('field not recognised:', field)
        assert 0
 
+    path_hist = get_paths()[model+'_hist']
     files = glob(path_hist+'*/*/'+ suffix)
-    if spp:
+
+    if ssp:
+        path_ssp = get_paths()[model+'_'+ssp]
         files.extend(glob(path_ssp+'*/*/'+ suffix))
     
     if remove_2015:
@@ -2142,7 +2171,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     )
 
     images = []
-    plot_every_days=9 #,700,
+    plot_every_days=27 #81 #,700,
     for fn in sorted(temp_files)[:]:
         #nc = Dataset(fn, 'r')
         imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days)
@@ -2154,6 +2183,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     video_path = folder('video/mp4/')+daily_count+'.mp4'
     print('creating links in', video_frames)
     last_frame = 0
+
     for plot_id, img_fn in enumerate(sorted(images)):
         outpath = ''.join([video_frames, 'img'+str(plot_id).zfill(6), '.png'])
         if not os.path.exists(outpath):
@@ -2162,7 +2192,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
 
     img_fn = sorted(images)[-1]
     for i in np.arange(1, 60):
-        outpath = ''.join([video_frames, 'img'+str(last_fram+i).zfill(6), '.png'])
+        outpath = ''.join([video_frames, 'img'+str(last_frame+i).zfill(6), '.png'])
         if not os.path.exists(outpath):
             os.symlink(os.path.abspath(img_fn), os.path.abspath(outpath))
 
