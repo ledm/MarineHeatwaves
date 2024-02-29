@@ -30,7 +30,7 @@ from earthsystemmusic2.music_utils import folder
 #from .earthsystemmusic2 import music_utils as mutils 
 from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily10'
+daily_count = 'daily11'
 
 
 central_longitude = -14.368164721459744 #W #-160.+3.5
@@ -1326,10 +1326,9 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
    
 
     
-
-    fig = pyplot.figure(facecolor='black')
+    # Create main figure.
     dpi = 100. 
-    video_format = '720p' # 'HD' #self.globals.get('image_res','HD')
+    video_format = 'HD' #'720p' # 'HD' #self.globals.get('image_res','HD')
     if video_format == '720p':
         image_size = [1280, 720]
 
@@ -1339,6 +1338,8 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     if video_format == '4K':
         image_size = [3840., 2160.]
         dpi = 390.
+    fig = pyplot.figure(facecolor='black')
+    fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
 
     # panning points:
     pan={# name:           [  X,     Y,    L,    B,    W,    H ]
@@ -1366,10 +1367,13 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         'vbig_low2_b':     [ -35,   -23.,  -0.125, -0.35, 1.4,  1.4 ],
 #        'big_left':        [ -40.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
 
-
         'vbig_ai':         [ central_latitude,   central_longitude,   -0.15, -0.3, 1.6,  1.6 ],
         'vvbig_ai':        [ central_latitude-1,   central_longitude+2,   -0.45, -0.45, 1.9,  1.9 ],
         'vvvbig_ai':       [ central_latitude-2,   central_longitude,  -0.6, -0.6, 2.2,  2.2 ],
+
+        # off screen
+        'os_right':        [ -24.,  -20.,  1.05,  0.3,  0.6,  0.6 ],         
+        'os_below':        [ -24.,  -20.,  0.4,  -0.65,  0.6,  0.6 ],         
 
     }
     pan_years = {
@@ -1431,22 +1435,11 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         2070.1: 'vvvbig_ai',
         2071.: 'vvfar_out',
         }
+    pan_years_ts = pan_years
+    pan_years_ts[1982] = 'os_right'
+    pan_years_anom = pan_years
+    pan_years_anom[1981.0.] = 'os_below'
 
-    ortho_path_x = {yr: pan[value][0] for yr, value in pan_years.items()}
-    ortho_path_y = {yr: pan[value][1] for yr, value in pan_years.items()}
-    axes_path_L = {yr: pan[value][2] for yr, value in pan_years.items()}
-    axes_path_B = {yr: pan[value][3] for yr, value in pan_years.items()}
-    axes_path_W = {yr: pan[value][4] for yr, value in pan_years.items()}
-    axes_path_H = {yr: pan[value][5] for yr, value in pan_years.items()}
-
-    ortho_x = calc_midoint(dct, ortho_path_x)
-    ortho_y = calc_midoint(dct, ortho_path_y)
-    axes_L = calc_midoint(dct, axes_path_L)
-    axes_B = calc_midoint(dct, axes_path_B)
-    axes_W = calc_midoint(dct, axes_path_W)
-    axes_H = calc_midoint(dct, axes_path_H)
-
-    ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
 
     max_heatwaves_panning = {
         1976: 30.,
@@ -1462,16 +1455,69 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
                               clim_stuff=clim_stuff['thetao_con'],
                               max_heatwave=hw_len)
 
-    fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
-    ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
-    quick=False
-    globe_type='anomaly'
-    ax2 = plot_globe(ax2, nc=nc, t=t, quick=quick, globe_type=globe_type,clim_dat=clim_dat)
 
-    #if datas_dict['thetao_con'][date_key]
-    ax2 = add_mpa(ax2, heatwaves=heatwaves)
+    #globe_type_years = []
+    # quick=False
+    globe_type_years={
+        1976: 'ts',
+        1977: 'ts',
+        1978: 'ts',
+        1979: 'ts',
+        1980: 'ts',
+        1981: 'both',
+        1982: 'anomaly',
+        1983: 'anomaly',
+        1984: 'anomaly', 
+        }
+    globe_type = globe_type_years.get(year, 'ts')
+    if globe_type in ['both', 'ts']:
+        ortho_path_x = {yr: pan[value][0] for yr, value in pan_years_ts.items()}
+        ortho_path_y = {yr: pan[value][1] for yr, value in pan_years_ts.items()}
+        axes_path_L = {yr: pan[value][2] for yr, value in pan_years_ts.items()}
+        axes_path_B = {yr: pan[value][3] for yr, value in pan_years_ts.items()}
+        axes_path_W = {yr: pan[value][4] for yr, value in pan_years_ts.items()}
+        axes_path_H = {yr: pan[value][5] for yr, value in pan_years_ts.items()}
 
-    add_cbar(fig, field=field,  globe_type=globe_type) #ax_cbar)
+        ortho_x = calc_midoint(dct, ortho_path_x)
+        ortho_y = calc_midoint(dct, ortho_path_y)
+        axes_L = calc_midoint(dct, axes_path_L)
+        axes_B = calc_midoint(dct, axes_path_B)
+        axes_W = calc_midoint(dct, axes_path_W)
+        axes_H = calc_midoint(dct, axes_path_H)
+
+        ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
+
+        ax2 = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
+        globe_type='ts'
+        ax2 = plot_globe(ax2, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
+
+        #if datas_dict['thetao_con'][date_key]
+        ax2 = add_mpa(ax2, heatwaves=heatwaves)
+
+        add_cbar(fig, field=field,  globe_type=globe_type) #ax_cbar)
+
+    if globe_type in ['both', 'anomaly']:
+        ortho_path_x = {yr: pan[value][0] for yr, value in pan_years_anom.items()}
+        ortho_path_y = {yr: pan[value][1] for yr, value in pan_years_anom.items()}
+        axes_path_L = {yr: pan[value][2] for yr, value in pan_years_anom.items()}
+        axes_path_B = {yr: pan[value][3] for yr, value in pan_years_anom.items()}
+        axes_path_W = {yr: pan[value][4] for yr, value in pan_years_anom.items()}
+        axes_path_H = {yr: pan[value][5] for yr, value in pan_years_anom.items()}
+
+        ortho_x = calc_midoint(dct, ortho_path_x)
+        ortho_y = calc_midoint(dct, ortho_path_y)
+        axes_L = calc_midoint(dct, axes_path_L)
+        axes_B = calc_midoint(dct, axes_path_B)
+        axes_W = calc_midoint(dct, axes_path_W)
+        axes_H = calc_midoint(dct, axes_path_H)
+
+        ortho_pro=ccrs.Orthographic(ortho_y, ortho_x)
+
+        ax2b = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
+        globe_type='anomaly'
+        ax2b = plot_globe(ax2b, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
+        ax2b = add_mpa(ax2, heatwaves=heatwaves)
+        add_cbar(fig, field=field,  globe_type=globe_type) #ax_cbar)
 
     # time series axes
     # Music is:
@@ -2171,7 +2217,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     )
 
     images = []
-    plot_every_days=27 #81 #,700,
+    plot_every_days= 135 # 81  
     for fn in sorted(temp_files)[:]:
         #nc = Dataset(fn, 'r')
         imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days)
