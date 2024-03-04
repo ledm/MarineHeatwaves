@@ -2,6 +2,8 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot
 import matplotlib.patches as mpatches
+from matplotlib.colors import ListedColormap
+
 
 from glob import glob
 from netCDF4 import Dataset,num2date
@@ -30,7 +32,7 @@ from earthsystemmusic2.music_utils import folder
 #from .earthsystemmusic2 import music_utils as mutils 
 from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily11'
+daily_count = 'daily12'
 
 
 central_longitude = -14.368164721459744 #W #-160.+3.5
@@ -51,6 +53,14 @@ pc_proj=cartopy.crs.PlateCarree()
 # circle around each other?
 # emphasise heatwaves with rapid shaking?
 
+
+
+climate_stripes = ListedColormap([
+    '#08306b', '#08519c', '#2171b5', '#4292c6',
+    '#6baed6', '#9ecae1', '#c6dbef', '#deebf7',
+    '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a',
+    '#ef3b2c', '#cb181d', '#a50f15', '#67000d',
+   ])
 
 
 temperature_anom_cm = cm.hot_r
@@ -132,7 +142,7 @@ cm_bins = {
 
 cmaps = {
     'thetao_con': 'plasma', #'viridis',
-    'thetao_con_anomaly': 'seismic', #'viridis',
+    'thetao_con_anomaly': climate_stripes, #'seismic', #'viridis',
 
 #     'so_abs': 'viridis'
 #    'O3_TA': 2500., 
@@ -970,7 +980,7 @@ def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts', cbar_ax_loc = [0
 
 
 
-def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_colours=True):
+def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_colours=True, days_per_circle=3):
     """
     Add the MPA circle and study region square.
     """
@@ -982,9 +992,14 @@ def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_col
             radius=mpa_radius, ec='k', fc=(0., 0., 0., 0.), transform=proj, zorder=31))
 
     #norm = matplotlib.colors.Normalize(vmin=1, vmax=3.5)
+    #working here: converted heatwaves into a dict.
+    
+    hw_dates  = sorted(heatwaves.keys(), reverse=True)
 
-    for hwl, hwl_value in enumerate(heatwaves):
-
+    for hwl, hw_date in enumerate(hw_dates):
+        hwl_value = heatwaves[hw_date]
+        if hwl % days_per_circle:
+            continue 
         if hwl_value <= 1.: 
             #no heatwave for 1 degree
             continue
@@ -1132,11 +1147,11 @@ def calc_heat_wave(datas_dict,
         dates_list.append(dkey)
     
     dates_list.sort(reverse=True)
-    mhw = []
+    mhw = {}
     clim = clim_stuff[0]
     for dkey in dates_list:
         diff = datas_dict[dkey] - clim[(dkey[1], dkey[2])]
-        mhw.append(diff)
+        mhw[dkey] = diff
     return mhw
 
 
@@ -1361,6 +1376,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
 
     # panning points:
     pan={# name:           [  X,     Y,    L,    B,    W,    H ]
+        'tiny_dot':        [ -10.,  -15.,  0.6,  0.4,  0.05,  0.05, ], 
         'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],         
         'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.3,  0.7,  0.7 ],         
 
@@ -1434,10 +1450,13 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         2040.: 'vbig_low',
         2044.:  'vbig_low_b',        
         2046.: 'vbig_low1',
-        2048.: 'vbig_low1_b',
+        2048.: 'tiny_dot', #,
         2049.: 'vbig_low1',
         2050.: 'vbig_low2',
         2051.: 'vbig_low2_b',
+        2053.: 'big',
+        2055.: 'vbig_low2_b',
+        2056: 'tiny_dot',
         2058.: 'big', 
         2058.5: 'big_b',
         2059.: 'big', 
@@ -1451,7 +1470,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         2064.: 'vvbig_ai',
         2066.: 'vvvbig_ai',
         2070.1: 'vvvbig_ai',
-        2071.: 'vvfar_out',
+        2071.: 'tiny_dot',
         }
     
     pan_years_ts = pan_years.copy()
@@ -1481,7 +1500,14 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     globe_type_years.update({t:'anomaly' for t in np.arange(1985, 1996)})
     globe_type_years[1996] = 'both'
     globe_type_years.update({t:'ts' for t in np.arange(1997, 2020)})
-    globe_type_years.update({t:'anomaly' for t in np.arange(2020, 2075)})
+
+    # 2048 us a sudden change via the tiny_dot:
+    globe_type_years.update({t:'anomaly' for t in np.arange(2020, 2048)})
+    globe_type_years.update({t:'ts' for t in np.arange(2048, 2056)})
+    globe_type_years.update({t:'anomaly' for t in np.arange(2056, 2075)})
+
+    
+
 
 
     max_heatwaves_panning = {
@@ -2289,7 +2315,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     )
 
     images = []
-    plot_every_days= 9 # 54*3  # 135
+    plot_every_days= 27 # 54*3  # 135
     for fn in sorted(temp_files)[:]:
         #nc = Dataset(fn, 'r')
         imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days)
