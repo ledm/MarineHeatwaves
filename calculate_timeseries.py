@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot
 import matplotlib.patches as mpatches
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 
 from glob import glob
@@ -19,9 +19,9 @@ import numpy as np
 import cartopy
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import cartopy.io.shapereader as shpreader
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import cmocean
+#import cartopy.io.shapereader as shpreader
+#from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+#import cmocean
 from shelve import open as shopen
 from matplotlib.ticker import MaxNLocator
 from matplotlib import cm
@@ -30,40 +30,53 @@ import pickle
 
 from earthsystemmusic2.music_utils import folder
 #from .earthsystemmusic2 import music_utils as mutils 
-from earthsystemmusic2.climate_music_maker import climate_music_maker
+#from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily12'
+daily_count = 'daily14'
+video_format = '4K' #'720p' # 'UHD'
 
-
-central_longitude = -14.368164721459744 #W #-160.+3.5
-central_latitude = -7.940978677133847 # S
+central_longitude = -14.36816 #W #-160.+3.5
+central_latitude = -7.94097 # S
 mpa_radius = 2.88
 
 ortho_pro=ccrs.Orthographic(-15, -15)
 pc_proj=cartopy.crs.PlateCarree()
-#mpa_lon_corners = [central_longitude-mpa_radius, central_longitude+mpa_radius, central_longitude+mpa_radius, central_longitude-mpa_radius, central_longitude-mpa_radius ]
-#mpa_lat_corners = [central_latitude-mpa_radius, central_latitude-mpa_radius, central_latitude+mpa_radius, central_latitude+mpa_radius, central_latitude-mpa_radius]
 
 #TO DO:
 # parrallelise image creation
-# make mpa rings pulse (maybe one year at a time?)
-# use climate stripes colour scheme?
 # show both globes at once and make them dance?
 # Rotate globes 360 and back? pulsate with the beats?
 # circle around each other?
 # emphasise heatwaves with rapid shaking?
 
+# Last few years: 
+# expand TS axes to cover more of figure. - done
+# Move zoomed out globe to centre right.
+
+# Mpa circle:
+# Only have a circle when note changes. Load velocity from midi maker or duplicate calculation method.
+# Circle radius is a function of time since the note changed and is not linked to number of days or frame rate. 
+# Colour is continuous scale linked to real data? 
+# Line width scales with axes size.
+
+# Anomaly plot goes behind other one.
+# Colour bar need to move closer to timing of switch.
 
 
-climate_stripes = ListedColormap([
+climate_stripes_colours = [
     '#08306b', '#08519c', '#2171b5', '#4292c6',
     '#6baed6', '#9ecae1', '#c6dbef', '#deebf7',
     '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a',
     '#ef3b2c', '#cb181d', '#a50f15', '#67000d',
-   ])
+   ]
+climate_stripes = ListedColormap(climate_stripes_colours)
+anom_bins=20
+smooth_stripes = LinearSegmentedColormap.from_list('smooth_stripes', climate_stripes_colours,N=anom_bins)
 
+# temperature_anom_cm = cm.hot_r
+# temperature_anom_cm = cm.PuRd
+temperature_anom_cm = cm.winter_r
 
-temperature_anom_cm = cm.hot_r
 temperature_anom_norm = matplotlib.colors.Normalize(vmin=1, vmax=3.5)
 temperature_bins = 5 
 
@@ -128,21 +141,21 @@ anom_maxs = {
     }
 cbar_vmin = {
     'thetao_con': 5.0,
-    'thetao_con_anomaly': -10.,
+    'thetao_con_anomaly': -5.,
     }
 cbar_vmax = {
     'thetao_con': 31.0,
-    'thetao_con_anomaly': 10.,
+    'thetao_con_anomaly': 5.,
     }
 
 cm_bins = {
     'thetao_con': 26,
-    'thetao_con_anomaly': 24,
+    'thetao_con_anomaly': anom_bins,
 }
 
 cmaps = {
     'thetao_con': 'plasma', #'viridis',
-    'thetao_con_anomaly': climate_stripes, #'seismic', #'viridis',
+    'thetao_con_anomaly': smooth_stripes, #climate_stripes, #'seismic', #'viridis',
 
 #     'so_abs': 'viridis'
 #    'O3_TA': 2500., 
@@ -675,6 +688,24 @@ def fill_between(
     #     if vmins.get(field, False):
     #         pyplot.ylim([vmins[field], vmaxs[field]])
 
+def highlight_endpoint(fig, ax, decimal_t, times, data, colours=()):
+    """
+    Emphasise the current musical note.
+    """
+    pyplot.sca(ax)
+    loc = np.argmin(np.abs(np.array(times) - decimal_t))
+    time = times[loc]
+    dat = data[loc]
+    col = np.array(colours[loc][:-1]) # strip alpha value
+    ax.scatter(time, dat, s=150, marker='o', c=col/5, alpha=0.5, zorder=55 , edgecolor=(0., 0., 0., 0.,))
+
+    #print('highlight_endpoint', time, dat, col)
+    for i in np.arange(1, 11, 1):
+        ax.scatter(time-(float(i)/20.), dat, s=150/float(i), marker='o', c=col/(5+float(i)), alpha=0.4/float(i), zorder=55 ,  edgecolor=(0., 0., 0., 0.,))
+        return fig, ax
+
+
+
 def plot_musical_notes(
         datas_dict, 
         dates_dict, 
@@ -749,8 +780,26 @@ def plot_musical_notes(
             new_colours = [(a/2., 0., a, a) for a in new_alphas]
 
         ax.scatter(new_times, new_data, s=new_sizes, marker='s', c=new_colours, zorder=50,)
+
+        #fig, ax = highlight_endpoint(fig, ax, decimal_t, new_times, new_data, colours=new_colours)
+
+        #col = new_colours[-1][:-1]
+
+        #print(, new_sizes[-1], col)
+        #assert 0        
+        #ax.scatter(new_times[-1], new_data[-1], s=new_sizes[-1]*200, marker='o', c=col, alpha=0.5, zorder=55,)
+        #ax.scatter(new_times[-1], new_data[-1], s=new_sizes[-1]*400, marker='o', c=col, alpha=0.25, zorder=55,)
+       
     else:
         ax.scatter(times, qdata, s=sizes, marker='s', c=colours, zorder=50,)
+
+       #fig, ax = highlight_endpoint(fig, ax, decimal_t, times, qdata, colours=colours)
+
+        # col = colours[-1][:-1]
+        # #print(times[-1], qdata[-1], sizes[-1], col)
+        # #assert 0
+        # ax.scatter(times[-1], qdata[-1], s=sizes[-1]*200, marker='o', c=col, alpha=0.5, zorder=55,)
+        # ax.scatter(times[-1], qdata[-1], s=sizes[-1]*400, marker='o', c=col, alpha=0.25, zorder=55,)
 
     if plot_type == ['bar_anom', 'just_anom']:
         ax.set_ylim([anom_mins[field], anom_maxs[field]])     
@@ -954,14 +1003,14 @@ def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts', cbar_ax_loc = [0
         cmap = cm.get_cmap(cmaps.get(field, 'viridis'), cm_bins[field])    # 11 discrete colors
         vmin=cbar_vmin.get(field, 0.)
         vmax=cbar_vmax.get(field, 1.)
-        label = 'SST, '+r'$\degree$'+'C'
+        label = 'Sea Surface Temperature, '+r'$\degree$'+'C'
                     
     elif globe_type=='anomaly':
         anom_field = field+'_anomaly'
         cmap = cm.get_cmap(cmaps.get(anom_field, 'viridis'), cm_bins[anom_field])    # 11 discrete colors        
         vmin=cbar_vmin.get(anom_field, 0.)
         vmax=cbar_vmax.get(anom_field, 1.)
-        label = r'$\Delta$'+'SST, '+r'$\degree$'+'C'
+        label = 'Sea Surface Temperature Anomaly, '+r'$\degree$'+'C'
                     
     img = pyplot.pcolormesh(x,x,x,
                             cmap=cmap,
@@ -980,26 +1029,59 @@ def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts', cbar_ax_loc = [0
 
 
 
-def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_colours=True, days_per_circle=3):
+def add_mpa(
+        ax, 
+        decimal_t,
+        linewidth=2.1,   
+        max_heatwave=0.75, # decimal years
+        heatwaves={}, # data from recalc (ie the notes.)
+        axes_size=1., 
+        draw_study_region=False, 
+        discrete_colours=False):
     """
     Add the MPA circle and study region square.
     """
     # whole MPA
     proj = ccrs.PlateCarree()
-    # proj = ccrs.Geodetic()
     
     ax.add_patch(mpatches.Circle(xy=[central_longitude, central_latitude, ], linewidth=1.5,
-            radius=mpa_radius, ec='k', fc=(0., 0., 0., 0.), transform=proj, zorder=31))
+            radius=mpa_radius, ec='white', fc=(0., 0., 0., 0.), transform=proj, zorder=31))
 
-    #norm = matplotlib.colors.Normalize(vmin=1, vmax=3.5)
-    #working here: converted heatwaves into a dict.
-    
-    hw_dates  = sorted(heatwaves.keys(), reverse=True)
+    if max_heatwave>2.: 
+        print('max_heatwave is in units of decimal years. Typically use a between 0.5 adn 1.5.')
+        assert 0
 
-    for hwl, hw_date in enumerate(hw_dates):
-        hwl_value = heatwaves[hw_date]
-        if hwl % days_per_circle:
-            continue 
+    reduced_heatwaves = {}
+    times = [time for time in sorted(heatwaves.keys())]
+    for t, time in enumerate(times):
+        if time > decimal_t: 
+            # no heatwaves in the future
+            continue
+        if time < decimal_t - max_heatwave:
+            # no heatwaves in the distant past
+            continue
+        hwl_value = heatwaves[time]
+
+        if hwl_value <= 1.: 
+            #no heatwave for 1 degree
+            continue
+        if t > 0:
+            hwl_value_m1 = heatwaves[times[t-1]]
+            if hwl_value_m1 == hwl_value:
+                # Skip doubles - only show waves when note changes.
+                continue
+        reduced_heatwaves[time] = hwl_value
+
+    ring_speed = 10./1. # 5 degrees per year
+    alpha_speed = -1.5/1. # loose x alphas per year 
+    thickness_speed = -2.5/1. # looose 2 thicknesses per year
+
+    min_alpha = 0.05
+    min_lw = 0.25 
+    lw_factor = 0.5
+    min_rad = 0.
+
+    for time, hwl_value in reduced_heatwaves.items():
         if hwl_value <= 1.: 
             #no heatwave for 1 degree
             continue
@@ -1007,20 +1089,25 @@ def add_mpa(ax, linewidth=2.1, draw_study_region=False, heatwaves=0,discrete_col
         if discrete_colours:
             hwl_value = int(hwl_value)
         
-        circle_alpha = np.max([1 - 0.03*hwl, 0.05])
-        rgba_color = temperature_anom_cm(temperature_anom_norm(hwl_value), 5 )#, bytes=True) 
+        tdiff = np.abs(decimal_t - time)
+
+        circle_alpha = np.max([1  + alpha_speed * tdiff, min_alpha])
+
+        rgba_color = temperature_anom_cm(temperature_anom_norm(hwl_value), 5 )
         mpa_circle_colour = (rgba_color[0], rgba_color[1], rgba_color[2], circle_alpha)
 
-        lw = np.max([2. - 0.05*hwl, 0.1])
-        rad = mpa_radius + (0.1 + (0.25 * hwl**0.95))*1.4
+        lw = np.max([linewidth +  thickness_speed * tdiff, min_lw]) 
+        lw = lw_factor * lw * axes_size * np.max([hwl_value, 1.])
+        rad = mpa_radius + 0.01 + np.max([tdiff * ring_speed, min_rad])**0.95
 
-        ax.add_patch(mpatches.Circle(xy=[central_longitude, central_latitude, ], 
-                linewidth=lw,
-                radius=rad,
-                ec=mpa_circle_colour, 
-                fc=(0., 0., 0., 0.), 
-                transform=proj, 
-                zorder=30))            
+        ax.add_patch(
+            mpatches.Circle(xy=[central_longitude, central_latitude, ], 
+            linewidth=lw,
+            radius=rad,
+            ec=mpa_circle_colour, 
+            fc=(0., 0., 0., 0.), 
+            transform=proj, 
+            zorder=30))        
 
     if not draw_study_region:
         return ax
@@ -1061,7 +1148,10 @@ def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_typ
                     cmap=cmap,
                     vmin=cbar_vmin.get(field, 0.),
                     vmax=cbar_vmax.get(field, 1.),
-                    )
+                    zorder=8, 
+                    )        
+        ax.coastlines()
+        ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=8)                    
     elif globe_type=='anomaly':
 
         data = nc.variables[field][t, 0, ::binning, ::binning]
@@ -1077,9 +1167,10 @@ def plot_globe(ax, nc=None, t=None, quick=True, field = 'thetao_con',  globe_typ
                     cmap=cmap,
                     vmin=cbar_vmin.get(anom_field, 0.),
                     vmax=cbar_vmax.get(anom_field, 1.),
+                    zorder=6, 
                     )        
-    ax.coastlines()
-    ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=9)
+        ax.coastlines()
+        ax.add_feature(cfeature.LAND, edgecolor='black', facecolor=land_color, linewidth=0.5, zorder=7)
 
     ax.set_global()
     xlocs = [-150., -120., -90., -60., -30., 0., 30., 60., 90., 120., 150., 180., ]
@@ -1221,7 +1312,8 @@ def plot_legend(
     pyplot.plot([], [], lw=2, c='white', label='Model Mean')
     pyplot.plot([], [], lw=1.5, ls=':', c='white', label=''.join([str(clim_range[0]), '-', str(clim_range[1]), ' Mean'] ))
     add_blank_legend_entry(fig, ax)
-    add_blank_legend_entry(fig, ax)
+    # add_blank_legend_entry(fig, ax)
+    pyplot.scatter([], [], marker='o', color='white', facecolor=(0, 0, 0, 0), s = 100, label = 'Ascension Island MPA') #
 
     if year >= np.min(active_time_ranges['thetao_con']):
         pyplot.scatter([], [], marker='s', color=(1., 0.,  0., 1.), label = 'Piano') # red
@@ -1234,7 +1326,7 @@ def plot_legend(
     else:
         add_blank_legend_entry(fig, ax)
     if year >= np.min(active_time_ranges['Ztot_c_result']):
-        pyplot.scatter([], [], marker='s', color=(0.5, 0., 1., 1.), label = 'Lazer Synth') # purple
+        pyplot.scatter([], [], marker='s', color=(0.5, 0., 1., 1.), label = 'Synth Lazer') # purple
     else:
         add_blank_legend_entry(fig, ax)
 
@@ -1248,7 +1340,7 @@ def plot_legend(
         if decimal_time >= first_deg_waves[deg_thresh]:
             rgba_color = temperature_anom_cm(temperature_anom_norm(deg_thresh), 5 )#, bytes=True) 
             time_in_rads = math.radians(((decimal_time - year - first_deg_waves[deg_thresh])%0.25)*90.)
-            size = (math.sin(time_in_rads)+1) * 50.
+            size = (math.sin(time_in_rads)+1) * 75.
             alpha = math.cos(time_in_rads)
             rgba_color = (rgba_color[0], rgba_color[1], rgba_color[2], alpha)
             #size = (decimal_time - year- (first_1_deg_wave - int(first_1_deg_wave)) +2. )* 20 # pulse from 10-15.
@@ -1319,8 +1411,13 @@ def plot_legend(
     #d manual symbols to auto legend
 #    handles.extend([patch, line, point])
 
-    leg = ax.legend(framealpha=0.15, ncol=3, loc = 'lower left', mode = "expand",
-            ) #handles=handles)
+    leg = ax.legend(
+        framealpha=0.15, 
+        ncol=3, 
+        loc = 'lower left', 
+        mode = "expand",
+        labelcolor='white',
+    ) #handles=handles)
     frame = leg.get_frame()
     frame.set_edgecolor('white')
 
@@ -1337,7 +1434,36 @@ def get_image_path(date_key, dt):
     return fn
 
 
-def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], model='CNRM', field='thetao_con', clim_dat=None):
+global_heatwaves = {}
+def load_heatwaves():
+    global global_heatwaves
+    if len(global_heatwaves.keys()):
+        return global_heatwaves
+    
+    recalc_fn = 'output/MHW/recalc/MarineHeatWaves_f_cnrm_temp_anom.csv'
+    heatwaves={}
+    with open(recalc_fn) as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            time = float(row['dtimes'])
+            data = float(row[' recalc'])
+            heatwaves[time] = data
+    global_heatwaves = heatwaves
+    return heatwaves
+
+def daily_plot(
+        nc,
+        t, 
+        date_key, 
+        datas_dict, 
+        dates_dict, 
+        clim_stuff=(), 
+        clim_range=[1976,1985], 
+        model='CNRM', 
+        field='thetao_con', 
+        clim_dat=None,
+        plot_every_days=9,
+        no_new_plots=False):
     """
     The main daily plot.
     returns image path
@@ -1346,7 +1472,9 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     fn =  get_image_path(date_key, dt)
     if os.path.exists(fn):
         return fn
-    
+    if no_new_plots: 
+        return None
+
     date_string = '-'.join([mn_str(tt) for tt in date_key])
     (year, month, day) = date_key
     dct = decimal_year(dt, year,month,day)
@@ -1354,7 +1482,6 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
 
     
     # Create main figure.
-    video_format = 'QHD' #'720p' # 'HD' #self.globals.get('image_res','HD')
     if video_format == '720p':
         image_size = [1280, 720]
         dpi = 100. 
@@ -1376,12 +1503,18 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
 
     # panning points:
     pan={# name:           [  X,     Y,    L,    B,    W,    H ]
-        'tiny_dot':        [ -10.,  -15.,  0.6,  0.4,  0.05,  0.05, ], 
-        'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],         
+        'tiny_dot':        [ -5.,  -85.,  0.6,  0.4,  0.05,  0.05, ], 
+        'tiny_dot_r':      [  5.,   85.,  0.75,  0.65,  0.05,  0.05, ], 
+        'dot_r':           [ -10.,  -15.,  0.75,  0.65,  0.005,  0.005, ], 
+
+
+        'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],    
+        'vvfar_out_w':     [ -24.,  -70.,  0.4,  0.3,  0.6,  0.6 ],         
         'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.3,  0.7,  0.7 ],         
 
         'vfar_out':        [ -28.,  -28.,  0.3,  0.2,  0.7,  0.7 ],        
         'far_out':         [ -25.,  -25.,  0.3,  0.1,  0.8,  0.8 ],
+        'far_out_w':       [  65.,    5.,  0.3,  0.1,  0.8,  0.8 ],
         'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
         'big_b':           [ -21.,  -19,   0.05, -0.15, 1.3,  1.3 ],
 
@@ -1404,6 +1537,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         'vbig_ai':         [ central_latitude,   central_longitude,   -0.15, -0.3, 1.6,  1.6 ],
         'vvbig_ai':        [ central_latitude-1,   central_longitude+2,   -0.45, -0.45, 1.9,  1.9 ],
         'vvvbig_ai':       [ central_latitude-2,   central_longitude,  -0.6, -0.6, 2.2,  2.2 ],
+        'vvvbig_ai_R':       [ central_latitude-2,   central_longitude,  -0.3, -0.6, 2.1,  2.1 ],
 
         # off screen
         'os_right':        [ -24.,  -20.,  1.00,  1.,  0.6,  0.6 ],         
@@ -1411,8 +1545,9 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
 
     }
     pan_years = {
-        1970.: 'far_out',
-        1976.: 'far_out',
+        1970.: 'far_out_w',
+        1975.7: 'far_out_w',
+        1976.5: 'far_out',
         1978.:  'big', 
         1980.:  'vbig',
 #        1983.: 'vbig',
@@ -1443,7 +1578,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         2011.: 'vbig',
         2017.: 'vbig_ai',
         2019.75: 'vvvbig_ai',
-        2000.25: 'far_out',
+        #2000.25: 'far_out',
         2025.: 'vvfar_out', 
         2028.: 'vvfar_out_b',
         2032.: 'far_out',
@@ -1469,8 +1604,10 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         2062.: 'vbig_ai',
         2064.: 'vvbig_ai',
         2066.: 'vvvbig_ai',
-        2070.1: 'vvvbig_ai',
-        2071.: 'tiny_dot',
+        2069.1: 'vvvbig_ai_R',
+        2070.5: 'tiny_dot_r',
+        2070.95: 'dot_r',
+
         }
     
     pan_years_ts = pan_years.copy()
@@ -1506,29 +1643,22 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     globe_type_years.update({t:'ts' for t in np.arange(2048, 2056)})
     globe_type_years.update({t:'anomaly' for t in np.arange(2056, 2075)})
 
-    
-
-
-
     max_heatwaves_panning = {
-        1976: 30.,
-        2020: 60.,
-        2070: 90.,
+        1976: 0.5,
+        ##2020: 0.,
+        #2020: 180., 
+        2076: 0.85, 
     }
-    hw_len = calc_midoint(dct, max_heatwaves_panning)
+    max_heatwave = calc_midoint(dct, max_heatwaves_panning)
 
-    heatwaves = calc_heat_wave(datas_dict['thetao_con'],
-                              dates_dict['thetao_con'], 
-                              date_key=date_key,
-                              clim_range=clim_range,
-                              clim_stuff=clim_stuff['thetao_con'],
-                              max_heatwave=hw_len)
+    # heatwaves = calc_heat_wave(datas_dict['thetao_con'],
+    #                           dates_dict['thetao_con'], 
+    #                           date_key=date_key,
+    #                           clim_range=clim_range,
+    #                           clim_stuff=clim_stuff['thetao_con'],
+    #                           max_heatwave=hw_len)
+    heatwaves = load_heatwaves()
 
-
-    #globe_type_years = []
-    # quick=False
-
-    
     cbar_ax_locs = { #(left, bottom, width, height)
         'main':  [0.9, 0.2, 0.02, 0.6],
         'above': [0.95, 1.0, 0.015, 0.45],
@@ -1536,13 +1666,24 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     }
     cbar_ax_loc_pann_ts = {}
     cbar_ax_loc_pann_anom = {}
-    for yr, plot_type2 in globe_type_years.items():
+    globe_years = sorted([yr for yr in globe_type_years.keys()])
+    for i, yr in enumerate(globe_years):
+        plot_type2 = globe_type_years[yr]
+        
+        #plot_type2_p1 = globe_type_years[globe_years[i+1]]
+        #plot_type2_m1 = globe_type_years[globe_years[i-1]]
+
+        # situations: 
         if plot_type2 == 'ts':
             cbar_ax_loc_pann_ts[yr] = cbar_ax_locs['main']
-            cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['below']
+            cbar_ax_loc_pann_anom[yr-0.5] = cbar_ax_locs['below']
+            #cbar_ax_loc_pann_anom[yr-1] = cbar_ax_locs['below']
+               
         if plot_type2 == 'anomaly':
-            cbar_ax_loc_pann_ts[yr] = cbar_ax_locs['above']
+            cbar_ax_loc_pann_ts[yr-0.5] = cbar_ax_locs['above']
+            #cbar_ax_loc_pann_ts[yr-0.5] = cbar_ax_locs['above']
             cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['main']
+
         
     globe_type_yr = globe_type_years[year] #.get(year, 'ts')
     if globe_type_yr in ['both', 'ts']:
@@ -1579,7 +1720,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         ax2 = plot_globe(ax2, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
 
         #if datas_dict['thetao_con'][date_key]
-        ax2 = add_mpa(ax2, heatwaves=heatwaves)
+        ax2 = add_mpa(ax2, dct, heatwaves=heatwaves, max_heatwave=max_heatwave, axes_size=axes_W)
 
         add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
 
@@ -1614,7 +1755,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         ax2b = fig.add_axes([axes_L, axes_B, axes_W, axes_H], projection=ortho_pro) # (left, bottom, width, height)
         globe_type='anomaly'
         ax2b = plot_globe(ax2b, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
-        ax2b = add_mpa(ax2b, heatwaves=heatwaves)
+        ax2b = add_mpa(ax2b, dct, heatwaves=heatwaves, max_heatwave=max_heatwave, axes_size=axes_W)
         add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
 
     # time series axes
@@ -1637,13 +1778,16 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         'Ptot_c_result': list(np.arange(1984, 2020)),
         'Ztot_c_result': list(np.arange(2000, 2020)),
         }
+    
     active_time_ranges['O3_pH' ].extend(list(np.arange(2052, 2076)))
     active_time_ranges['Ptot_c_result' ].extend(list(np.arange(2044, 2076)))
     active_time_ranges['Ztot_c_result' ].extend(list(np.arange(2060, 2076)))
 
     # Wheere the time series axes are:
     left = 0.08
-    width=0.3
+    widths = {1970: 0.3, 2067.5: 0.3, 2071: 0.55}
+    width = calc_midoint(dct, widths)
+
     plot_heights =       {1: 0.6, 2: 0.3,  3: 0.2,  4: 0.17}
     plot_B_corner = { # the index is the number of plots on screen at once.
         'thetao_con'   : {1: 0.2, 2: 0.52, 3: 0.65, 4: 0.715},
@@ -1712,8 +1856,13 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
     y_height = calc_midoint(dct, ax_panning_H)
 
 
-    add_legend = True
-    if add_legend:
+    add_legend = {int(yr):True for yr in np.arange(1970, 2068)}
+    add_legend[2069] = False
+    add_legend[2070] = False
+    add_legend[2071] = False
+   
+
+    if add_legend.get(year, False):
         ax_leg = fig.add_axes([0.45, 0.1, 0.4, 0.2]) # (left, bottom, width, height)
         fig, ax_leg = plot_legend(
                 active_time_ranges,
@@ -1822,7 +1971,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
             fig=fig, 
             ax=ax5, 
             alpha=alpha_ax5)
-        ax5.text(0.02, 0.05, 'Phytoplankton', color='white',alpha=alpha_ax5, transform=ax5.transAxes)
+        ax5.text(0.02, 0.88, 'Phytoplankton', color='white',alpha=alpha_ax5, transform=ax5.transAxes)
         fig, ax5 = plot_musical_notes(datas_dict, dates_dict, 
             time_key=date_key, 
             decimal_t=dct,
@@ -1859,7 +2008,7 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
             fig=fig, 
             ax=ax6, 
             alpha=alpha_ax6)
-        ax6.text(0.02, 0.05, 'Zooplankton', color='white', alpha=alpha_ax6, transform=ax6.transAxes)
+        ax6.text(0.02, 0.88, 'Zooplankton', color='white', alpha=alpha_ax6, transform=ax6.transAxes)
         fig, ax6 = plot_musical_notes(
             datas_dict, dates_dict, 
             time_key=date_key, 
@@ -1874,18 +2023,31 @@ def daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=(), clim_rang
         )
         ax6.set_ylabel('mg Cm'+r'$^{3}$', color='white', alpha=alpha_ax6,)
     
+    # Adjust x ticks:
+    if year in active_time_ranges['Ptot_c_result']:
+        ax3.xaxis.set_ticklabels([]) # thetao axis
+    if year in active_time_ranges['O3_pH']:
+        ax4.xaxis.set_ticklabels([]) # O3_pH
+        # Never has ticks!
+    if year in active_time_ranges['Ztot_c_result']:
+        ax5.xaxis.set_ticklabels([]) # Phyto   
+    # # Zoo always has x ticks.    
+
     #ax7 = fig.add_axes([0.1, 0.05, 0.3, 0.]) # (left, bottom, width, height) 
     #pyplot.plot()
 
     font = {#'family': 'monospace',
             'color':  'white',
-            #'weight': 'bold',
+            'weight': 'bold',
             'size': 14,
             }
     scenario = 'Historical'
     if year>=2015:
         scenario = 'SSP3-7.0'    
-    fig.text(left, 0.9, ' '.join([date_string, scenario]), fontdict=font)
+    fig.text(left, 0.932, 'Marine Heatwaves' , fontdict=font)
+    #fig.text(left, 0.895, ' '.join([date_string, scenario]), fontdict=font)
+    fig.text(left, 0.90, date_string, fontdict={'color':  'white', 'size': 12,})
+    #fig.text(left, ax3_B+ y_height + 0.0075, date_string, fontdict=font)
 
     print('saving:', date_string, fn)  
     pyplot.savefig(fn, dpi=dpi)
@@ -2021,10 +2183,16 @@ def get_clim_dat(fn, date_key, field, clim_range, model='CNRM'):
     nc.close()
 
     count = 1
+    leap_day =  (date_key[1] == 2 and date_key[2] == 29)
     for fn in path_restricted[1:]:
         print('calculating clim:', date_key[1], date_key[2], fn)
         nc = Dataset(fn, 'r')
-        data += nc.variables[field][date_key[2]-1, 0, :, :]
+        if leap_day: # Leap day
+            try:
+                data += nc.variables[field][date_key[2]-1, 0, :, :]
+            except: pass
+        else:
+            data += nc.variables[field][date_key[2]-1, 0, :, :]
         nc.close()        
         count+=1
     data = data/count
@@ -2045,7 +2213,15 @@ def get_clim_dat(fn, date_key, field, clim_range, model='CNRM'):
     # return output_path
 
 
-def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1976,1985], field='thetao_con', plot_every_days=9):
+def iterate_daily_plots(
+        fn, 
+        datas_dict, 
+        dates_dict, 
+        clim_stuff=(), 
+        clim_range=[1976,1985], 
+        field='thetao_con', 
+        plot_every_days=9,
+        no_new_plots=False):
 
     nc = Dataset(fn, 'r')
 
@@ -2055,22 +2231,25 @@ def iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=(), clim_range=[1
     images = []
     for t, dt in enumerate(dates[:]):
         date_key = (dt.year, dt.month, dt.day)
-        if dt.year == 2070:
+        dcy = decimal_year(dt, dt.year, dt.month, dt.day)
+        plot_every_days_ = plot_every_days
+
+        if dcy >= 2069.5:
             plot_every_days_ = int(plot_every_days/3.) # 3x slower final year.
-        elif dt.year > 2070 + 11./12.:
+        if dcy > 2070. + 11./12.:
             plot_every_days_ = 1
-        else:
-            plot_every_days_ = plot_every_days
+ 
         time_delta = dt-cftime.DatetimeGregorian(1976, 1, 1, 12., 0, 0, 0)
-        if time_delta.days % plot_every_days: 
+        if time_delta.days % plot_every_days_: 
             continue
         
-        # loading climatollogy map:
+        # loading climatology map:
         clim_dat = get_clim_dat(fn, date_key, field, clim_range)
         #clim_dat = Dataset(clim_dat_fn, 'r')       
         #clim_dat.close()
 
-        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat)
+        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat, no_new_plots=no_new_plots)
+        if img in [False, None]: continue
         images.append(img)
     nc.close()
     return images
@@ -2303,10 +2482,6 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
         clim_stuff[field] = (clim_datas, clim_doy, clim_month)
 
 
-
-
-
-
     calc_heat_wave_csv(
         datas_dict['thetao_con'],
         dates_dict['thetao_con'], 
@@ -2315,15 +2490,20 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     )
 
     images = []
-    plot_every_days= 27 # 54*3  # 135
-    for fn in sorted(temp_files)[:]:
+    plot_every_days = 4  # 8**2  # 54*3  # 135
+    no_new_plots = False
+    for fn in sorted(temp_files): #reverse=True)[:]:
         #nc = Dataset(fn, 'r')
-        imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days)
+        imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days, no_new_plots=no_new_plots)
         images.extend(imgs)
         #nc.close()
 
     # Make video links:  
-    video_frames = folder('video/frames/'+daily_count+'/')
+    if no_new_plots:
+        video_frames = folder('video/frames/'+daily_count+'/NNP_'+str(plot_every_days))
+    else:
+        video_frames = folder('video/frames/'+daily_count+'/'+str(plot_every_days))
+
     video_path = folder('video/mp4/')+daily_count+'.mp4'
     print('creating links in', video_frames)
     last_frame = 0
@@ -2340,9 +2520,7 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
         if not os.path.exists(outpath):
             os.symlink(os.path.abspath(img_fn), os.path.abspath(outpath))
 
-
-
-    
+   
     #beats_per_second = 120./60.
     #beats_per_year = 8.
     seconds_per_year = 2.
@@ -2351,7 +2529,21 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
     frames_per_second = days_per_year/(plot_every_days*seconds_per_year) 
     #beats_per_second * frames_per_year / beats_per_year
     framerate = str(frames_per_second)
-    video_command = "ffmpeg -nostdin -y -framerate "+framerate+"  -s 1920x1280 -i "+video_frames+"img%06d.png -pix_fmt yuv420p -c:v libx264  -preset ultrafast "+video_path
+
+    if video_format == '720p':
+        image_size = [1280, 720]
+
+    if video_format == 'HD':
+        image_size = [1920., 1080.]
+
+    if video_format == 'QHD':
+        image_size = [2560., 1440.]
+
+    if video_format == '4K':
+        image_size = [3840., 2160.]
+
+    image_size_str = 'x'.join([str(int(image_size[0])), str(int(image_size[1]))])
+    video_command = "ffmpeg -nostdin -y -framerate "+framerate+"  -s "+image_size_str+" -i "+video_frames+"img%06d.png -pix_fmt yuv420p -c:v libx264  -preset ultrafast "+video_path
     print('Make video with:\n', video_command)
 
 
