@@ -1,0 +1,197 @@
+
+global:
+    name: 'MarineHeatWaves_onset_2'
+    title: 'MarineHeatWaves_onset_2'
+    output_path: 'output/MHW_onset_2'
+    bpm: 120.
+    #Notes per beat is actually "years per musical beat". 
+    # with weekly L4 data, want 2 data points per chord, or about
+    beats_per_year: &beats_per_year_anchor 4 
+    notes_per_beat: &notes_per_beat_anchor 1  
+    beats_per_chord: &beats_per_chord_anchor 0.5
+    quantize: &quantize_anchor 'semi-quaver' 
+
+    # graphical options:
+    image_res: '4K'  # 4K: 2840 x 2160
+    frame_rate: 30
+    plot_every: 1  
+    video_timerange: [2000., 2020.99999] 
+    scroll: 0.
+    annual_plot: True  
+    final_note_duration: 4
+    hold_last_frame: False  # best to have too long than too short here!
+
+    #background_colour: '#F0FFFF' # Azure (very white)
+    #background_image: 'input/background_4K.png'
+    #background_image: 'input/background.png'
+
+    text_color: 'black'
+      #'#43b3ae' # verdigris (very grey)
+      # '#c9ffe5' # Aero Blue )too bright)
+      # # '#D3D3D3' # light grey (boring grey)
+    xlabel: ' '
+    legend_loc: 'upper right'
+    show_raw_data: True
+    chyron_text: [
+         ]
+
+
+# Note that VST's don't use python numbering.
+# Ie python: 1 is actually MIDI: 2
+# If you want channel to use channel 1, set the value to 0.
+
+# should probably swap around the runs so that violins have SPP585.
+
+tracks:
+  #  heatwaves:
+  #      longname: 'Heatwave_onsets'
+  #    channel: 0
+  #    units: r'$\degree$C'
+  #    beats_per_year: *beats_per_year_anchor  
+  #    notes_per_beat: *notes_per_beat_anchor
+  #    beats_per_chord: *beats_per_chord_anchor 
+  #    quantize: 'demi-semi-quaver'
+  #    scales: ['C_tonic','C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic',  ]
+  #    play_new_chords: False
+  #    data_paths: ['csv/CNRM_thetao_con_anomaly.csv', ]
+  #    volume_paths:  ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+  #    time_range: [1976., 2070.99999]
+  #    data_type: 'csv'
+  #    data_key:  'temperature_anom'
+  #    data_kwargs: []
+  #    instrument: 'Piano'
+  ##    music_range: [59, 109] # 0: 60, 1 - 72, 2: 84:, 3: 96: 4: 108
+  #
+  #    # blank means
+  #    data_range: [0, 4.]
+  #    plot_range: [0, 4.]
+  #      
+  #    moving_average: '0.05 years'
+  #    volume_range: [1, 125]
+  #    # Plotting details
+  #    colour: '#87CEFA' # 'light blue'
+  #    pane: 1
+  #    y_label: ' ' #Nitrate, uM'
+
+  cnrm_temp_anom_mhw:
+      longname: 'Tempertare anomaly'
+      channel: 0
+      units: r'$\degree$C'
+      beats_per_year: *beats_per_year_anchor
+      notes_per_beat: *notes_per_beat_anchor
+      beats_per_chord: *beats_per_chord_anchor
+      quantize: *quantize_anchor
+        #scales: &scales_anchor [ # Britneyspears - hit me baby one more time.
+        #'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'D_tonic',
+        #'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic',
+        #'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic',
+        #'F_tonic', 'F_tonic', 'F_tonic', 'F_tonic', 'G_tonic', 'Bb_tonic', 'C_tonic', 'C_tonic',
+        #      ]
+      scales: &scales_anchor [ # Britneyspears - hit me baby one more time.
+          'Cmin', 'Cmin', 'Cmin', 'Cmin', 'Cmin', 'Cmin', 'Cmin', 'Gmaj',
+          'Gmaj', 'Gmaj', 'Gmaj', 'Gmaj', 'Gmaj', 'Gmaj', 'Dmaj', 'Dmaj',
+          'Ebmin', 'Ebmin', 'Ebmin', 'Ebmin', 'Ebmin', 'Ebmin',  'Ebmin', 'Ebmin',
+          'Fmaj', 'Fmaj', 'Fmaj', 'Fmaj', 'Gmaj', 'Bbmin', 'C5', 'C5',
+          ]
+
+      #scales: *scales_anchor
+      play_new_chords: True
+      data_paths: ['csv/CNRM_thetao_con_anomaly.csv', ]
+      volume_paths:  ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+      time_range: [1976., 2070.99999]
+      # type options [ shelve, nc, csv]
+      data_type: 'csv'
+      data_key:  'temperature_anom'
+      data_kwargs: []
+      instrument: 'Piano'
+      music_range: [67, 102]
+
+      # blank means
+      data_range: [-1., 4.]
+      volume_data_range: [-1., 4] 
+      volume_moving_average: None
+      #      plot_range: [-1., 4.]
+
+      moving_average: '0.05 years'
+      volume_range: [5, 120]
+      # Plotting details
+      colour: '#87CEFA' # 'light blue'
+      pane: 1
+      y_label: ' ' #Nitrate, uM'
+
+
+
+#  heatwaves_hmb:
+#      longname: 'Heatwave_onsets_hmb_notes'
+#      channel: 0
+#      units: r'$\degree$C'
+#      beats_per_year: *beats_per_year_anchor
+#      notes_per_beat: *notes_per_beat_anchor
+#      beats_per_chord: *beats_per_chord_anchor
+#      quantize: 'demi-semi-quaver'
+#      scales: &scales_anchor [ # Britneyspears - hit me baby one more time.
+#        'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'D_tonic',
+#        'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic',
+#        'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic',
+#        'F_tonic', 'F_tonic', 'F_tonic', 'F_tonic', 'G_tonic', 'Bb_tonic', 'C_tonic', 'C_tonic',
+#      ]
+#      play_new_chords: False
+#      data_paths: ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+#      volume_paths:  ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+#      time_range: [1976., 2070.99999]
+#      data_type: 'csv'
+#      data_key:  'temperature_anom'
+#      data_kwargs: []
+#      instrument: 'Piano'
+#      music_range: [59, 109] # 0: 60, 1 - 72, 2: 84:, 3: 96: 4: 108
+#
+#      # blank means
+#      data_range: [0, 4.]
+#      plot_range: [0, 4.]
+#
+#      moving_average: '0.05 years'
+#      volume_range: [1, 125]
+#      # Plotting details
+#      colour: '#87CEFA' # 'light blue'
+#      pane: 1
+#      y_label: ' ' #Nitrate, uM'
+
+
+        
+#  heatwaves_hmb:
+#      longname: 'Heatwave_onsets_hmb'
+#      channel: 0
+#      units: r'$\degree$C'
+#      beats_per_year: *beats_per_year_anchor  
+#      notes_per_beat: *notes_per_beat_anchor
+#      beats_per_chord: *beats_per_chord_anchor 
+#      quantize: 'demi-semi-quaver'
+#      scales: &scales_anchor [ # Britneyspears - hit me baby one more time.
+#        'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'C_tonic', 'D_tonic', 
+#        'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 'D_tonic', 
+#        'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 'Eb_tonic', 
+#        'F_tonic', 'F_tonic', 'F_tonic', 'F_tonic', 'G_tonic', 'Bb_tonic', 'C_tonic', 'C_tonic',
+#      ]      
+#      play_new_chords: False
+#      data_paths: ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+#      volume_paths:  ['csv/heatweaves/CNRM_SSP370_heatwaves.cvs', ]
+#      time_range: [1976., 2070.99999]
+#      data_type: 'csv'
+#      data_key:  'temperature_anom'
+#      data_kwargs: []
+#      instrument: 'Piano'
+#      music_range: [59, 109] # 0: 60, 1 - 72, 2: 84:, 3: 96: 4: 108
+#
+#      # blank means
+#      data_range: [0, 4.]
+#      plot_range: [0, 4.]
+#        
+#      moving_average: '0.05 years'
+#      volume_range: [1, 125]
+#      # Plotting details
+#      colour: '#87CEFA' # 'light blue'
+#      pane: 1
+#      y_label: ' ' #Nitrate, uM'
+
+
+
