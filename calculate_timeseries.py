@@ -29,11 +29,16 @@ from matplotlib import cm
 import pickle
 
 from earthsystemmusic2.music_utils import folder
+from add_distortion import add_distortion_to_fig
+
 #from .earthsystemmusic2 import music_utils as mutils 
 #from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily14'
-video_format = '4K' #'720p' # 'UHD'
+daily_count = 'daily16'
+video_format = False # '720p' # '4K' #'720p' # 'UHD'
+do_distortion = True
+reduced_years = np.arange(2050, 2070)
+
 
 central_longitude = -14.36816 #W #-160.+3.5
 central_latitude = -7.94097 # S
@@ -43,7 +48,25 @@ ortho_pro=ccrs.Orthographic(-15, -15)
 pc_proj=cartopy.crs.PlateCarree()
 
 #TO DO:
-# parrallelise image creation
+# v16 notes:
+ # noise did not work.
+ # maybe jsut do a blend between the filtered one? without noise?
+# 2068.
+# legend font is jumpy. Can that be continuous?
+# can we just run a short few years at a time?
+# Not sure the jump to anomaly globe is needed at 1986. Maybe save it for 2020?
+
+
+# v 14:
+# done start is too quick. remove 1977. frame?
+# done legend  background black?
+# done legend HW pulse too quick, no fade
+# done Faster movement in 2052-2054.
+# done More movement in 2060-2065
+# time series extends backwards too soon. Maybe later? start in 2066, 
+
+# Turn less at the end.
+# colorbar slides too early
 # show both globes at once and make them dance?
 # Rotate globes 360 and back? pulsate with the beats?
 # circle around each other?
@@ -1020,13 +1043,15 @@ def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts', cbar_ax_loc = [0
     ax.set_visible(False)
     
     #ax_cbar = fig.add_axes([0.85, 0.2, 0.05, 0.6]) # (left, bottom, width, height)
-    axc = fig.add_axes(cbar_ax_loc) # (left, bottom, width, height)
-    cbar = pyplot.colorbar(cax=axc, orientation="vertical", extend='both', )
-    cbar.set_label(label=label, color='white', size=14 )#, weight='bold')
+    axc = fig.add_axes(cbar_ax_loc, zorder=1000) # (left, bottom, width, height)
+    cbar = pyplot.colorbar(cax=axc, orientation="vertical", extend='both',  )
+
+    # font size scales with height of cbar    
+    font_size = np.clip(6/.4*cbar_ax_loc[3] +5., 8., 14.)
+    cbar.set_label(label=label, color='white', size=font_size )#, weight='bold')
     cbar.ax.tick_params(color='white', labelcolor='white')
 
     return ax
-
 
 
 def add_mpa(
@@ -1078,7 +1103,7 @@ def add_mpa(
 
     min_alpha = 0.05
     min_lw = 0.25 
-    lw_factor = 0.5
+    lw_factor = 0.6
     min_rad = 0.
 
     for time, hwl_value in reduced_heatwaves.items():
@@ -1097,7 +1122,7 @@ def add_mpa(
         mpa_circle_colour = (rgba_color[0], rgba_color[1], rgba_color[2], circle_alpha)
 
         lw = np.max([linewidth +  thickness_speed * tdiff, min_lw]) 
-        lw = lw_factor * lw * axes_size * np.max([hwl_value, 1.])
+        lw = lw_factor * lw * axes_size * np.max([hwl_value**1.25, 1.])
         rad = mpa_radius + 0.01 + np.max([tdiff * ring_speed, min_rad])**0.95
 
         ax.add_patch(
@@ -1310,8 +1335,12 @@ def plot_legend(
     """
     year = time_key[0]
     pyplot.plot([], [], lw=2, c='white', label='Model Mean')
-    pyplot.plot([], [], lw=1.5, ls=':', c='white', label=''.join([str(clim_range[0]), '-', str(clim_range[1]), ' Mean'] ))
-    add_blank_legend_entry(fig, ax)
+    #pyplot.plot([], [], lw=1.5, ls=':', c='white', label=''.join([str(clim_range[0]), '-', str(clim_range[1]), ' Mean'] ))
+    #add_blank_legend_entry(fig, ax)
+    pyplot.plot([], [], lw=1.5, ls=':', c='white', label='Climatology')
+    pyplot.plot([], [], lw=1.5, ls=':', c=(0,0,0,0), label=''.join(['    (', str(clim_range[0]), '-', str(clim_range[1]), ' Mean)',] ))
+
+    #add_blank_legend_entry(fig, ax)    
     # add_blank_legend_entry(fig, ax)
     pyplot.scatter([], [], marker='o', color='white', facecolor=(0, 0, 0, 0), s = 100, label = 'Ascension Island MPA') #
 
@@ -1326,21 +1355,21 @@ def plot_legend(
     else:
         add_blank_legend_entry(fig, ax)
     if year >= np.min(active_time_ranges['Ztot_c_result']):
-        pyplot.scatter([], [], marker='s', color=(0.5, 0., 1., 1.), label = 'Synth Lazer') # purple
+        pyplot.scatter([], [], marker='s', color=(0.5, 0., 1., 1.), label = 'Synth Mid') # purple
     else:
         add_blank_legend_entry(fig, ax)
-
     #
     first_deg_waves = {
-        1: 1977.1041,
+        1: 1997.049,
         2: 2011.920,
         3: 2052.185,
     }
     for deg_thresh in [1, 2, 3]:
         if decimal_time >= first_deg_waves[deg_thresh]:
             rgba_color = temperature_anom_cm(temperature_anom_norm(deg_thresh), 5 )#, bytes=True) 
-            time_in_rads = math.radians(((decimal_time - year - first_deg_waves[deg_thresh])%0.25)*90.)
-            size = (math.sin(time_in_rads)+1) * 75.
+            cycles_per_year= 1
+            time_in_rads = math.radians(((decimal_time - year - first_deg_waves[deg_thresh])%(1./cycles_per_year))*90.)
+            size = (math.sin(time_in_rads)+1) * 100.
             alpha = math.cos(time_in_rads)
             rgba_color = (rgba_color[0], rgba_color[1], rgba_color[2], alpha)
             #size = (decimal_time - year- (first_1_deg_wave - int(first_1_deg_wave)) +2. )* 20 # pulse from 10-15.
@@ -1353,63 +1382,12 @@ def plot_legend(
                     label = str(int(deg_thresh))+' '+r'$\degree$'+ 'C heatwave')
         else:
             add_blank_legend_entry(fig, ax)
-    # first_1_deg_wave = 1977.1041
-    # if decimal_time >= first_1_deg_wave:
-    #    rgba_color1 = temperature_anom_cm(temperature_anom_norm(1.), 5 )#, bytes=True) 
-    #    time_in_rads = math.radians(((decimal_time - year - first_1_deg_wave)%0.25)*90.)
-    #    size = math.sin(time_in_rads) * 25.
-    #    alpha = math.cos(time_in_rads)
-    #    #size = (decimal_time - year- (first_1_deg_wave - int(first_1_deg_wave)) +2. )* 20 # pulse from 10-15.
-    #    pyplot.scatter([], [], 
-    #         marker='o', 
-    #         color=rgba_color1, 
-    #         facecolor=(0, 0, 0, 0),
-    #         s = size,
-    #         alpha = alpha,
-    #         label = '1 '+r'$\degree$'+ 'C heatwave')
-    # else:
-    #     add_blank_legend_entry(fig, ax)
-    # first_2_deg_wave = 2011.920
-    # if  decimal_time >= first_2_deg_wave:
-    #      rgba_color2 = temperature_anom_cm(temperature_anom_norm(2.), 5 )#, bytes=True) 
-    #      size = (decimal_time - year- (first_2_deg_wave - int(first_2_deg_wave)) +2. )* 20 # pulse from 10-15.
-    #      pyplot.scatter([], [],
-    #           marker='o', 
-    #           color=rgba_color2,
-    #           facecolor="None",
-    #           s = size,
-    #           label = '2 '+r'$\degree$'+ 'C heatwave')
-    # else:
-    #     add_blank_legend_entry(fig, ax)
-    # first_3_deg_wave = 2052.185
-    # if decimal_time >= first_3_deg_wave:
-    #     rgba_color3 = temperature_anom_cm(temperature_anom_norm(3.), 5 )#, bytes=True) 
-    #     size = (decimal_time - year- (first_2_deg_wave - int(first_2_deg_wave)) +2.)* 20# pulse from 40-6010-15.
-    #     pyplot.scatter([], [],
-    #             marker='o', 
-    #             color=rgba_color3,
-    #             facecolor=(0,0,0,0),
-    #             s = size,
-    #             label = '3 '+r'$\degree$'+ 'C heatwave')
-    # else:
-    #     add_blank_legend_entry(fig, ax)
 
     fig, ax = set_axes_alpha(fig, ax, alpha=1.) #, axes_color=axis_color)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_axis_off()
 
-    # access legend objects automatically created from data
-    #andles, labels = plt.gca().get_legend_handles_labels()
-
-    # create manual symbols for legend
-#    patch = mpatches.Patch(color='grey', label='manual patch')   
-#    line = Line2D([0], [0], label='manual line', color='k')
-#    point = Line2D([0], [0], label='manual point', marker='s', markersize=10, 
-#         markeredgecolor='r', markerfacecolor='k', linestyle='')
-
-    #d manual symbols to auto legend
-#    handles.extend([patch, line, point])
 
     leg = ax.legend(
         framealpha=0.15, 
@@ -1417,9 +1395,10 @@ def plot_legend(
         loc = 'lower left', 
         mode = "expand",
         labelcolor='white',
+        facecolor='black',
     ) #handles=handles)
     frame = leg.get_frame()
-    frame.set_edgecolor('white')
+    frame.set_edgecolor('black')
 
     return fig, ax
 
@@ -1428,7 +1407,7 @@ def get_image_path(date_key, dt):
     """
     Get a predeinfed path name
     """
-    fn = folder('images/'+daily_count+'/')+'daily'
+    fn = folder('images/'+daily_count+'_'+video_format+'/')+'daily'
     date_string = '-'.join([mn_str(tt) for tt in date_key])
     fn = ''.join([fn, '_', date_string])+ '.png'
     return fn
@@ -1451,6 +1430,182 @@ def load_heatwaves():
     global_heatwaves = heatwaves
     return heatwaves
 
+pan = {}
+pan_years = {}
+def make_global_panning_points():
+    """
+    Make the global panning point here, so it's not created every time step.
+    """
+    global pan
+    global pan_years
+
+    # panning points:
+    both_sizes = 0.35
+    bottom = 0.25
+    mid = 0.4
+    top = 0.63
+    left = 0.37
+    centre = 0.5
+    right = 0.624 
+    margin = 0.025
+    pan={# name:           [  X,     Y,    L,    B,    W,    H ]
+        'tiny_dot':        [ -5.,   -85.,  0.6,  0.4,  0.05,  0.05, ], 
+
+        'tiny_dot_BR':     [ -25.,   15.,  right-margin,  bottom +margin,  both_sizes*1.,  both_sizes*1., ], 
+        'tiny_dot_BC':     [ -30.,   -5.,  centre,  bottom,  both_sizes,  both_sizes, ], 
+        'tiny_dot_MR':     [  5.,   15.,  right,  mid,  both_sizes,  both_sizes, ], 
+        'tiny_dot_BL':     [ -25.,  -45.,  left+margin,  bottom+margin,  both_sizes*1.,  both_sizes*1., ], 
+        'tiny_dot_ML':     [ -5.,  -45.,  left,  mid,  both_sizes,  both_sizes, ], 
+        'tiny_dot_TL':     [ 15., -45.,  left+margin,  top-margin,  both_sizes*1.,  both_sizes*1., ], 
+        'tiny_dot_TC':     [ 20.,  -5.,   centre,  top,  both_sizes,  both_sizes, ], 
+        'tiny_dot_TR':     [ 15.,  15.,  right-margin,  top-margin,  both_sizes*1.,  both_sizes*1. , ], 
+    
+        'tiny_dot_r':      [  35.,   65.,  0.75,  0.65,  0.05,  0.05, ], 
+        'dot_r':           [ -10.,  -15.,  0.75,  0.65,  0.005,  0.005, ], 
+
+
+        'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],    
+        'vvfar_out_w':     [ -24.,  -70.,  0.4,  0.3,  0.6,  0.6 ],         
+        'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.3,  0.7,  0.7 ],         
+
+        'vfar_out':        [ -28.,  -28.,  0.3,  0.2,  0.7,  0.7 ],        
+        'far_out':         [ -25.,  -25.,  0.3,  0.1,  0.8,  0.8 ],
+        'far_out_w':       [  65.,    5.,  0.3,  0.1,  0.8,  0.8 ],
+        'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
+        'big_b':           [ -21.,  -19,   0.05, -0.15, 1.3,  1.3 ],
+
+        'big_left':        [ -40.,  -22,   0.1,  -0.3, 1.2,  1.2 ],
+        'big_right':       [ -5.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
+
+        'big_up':          [ -5., -42,   0.1,  -0.3, 1.2,  1.2 ],
+        'big_down':        [ -9.,  32,   0.1,  -0.1, 1.2,  1.2 ],
+
+        'vbig':            [ -10.,  -10,   0.0,  -0.3, 1.6,  1.6 ],
+        'vbig_2':          [ 0.5, 2,   0.0,  -0.2, 1.5,  1.5 ],
+        'vbig_b':          [ -7.,  7,  -0.1,  -0.4, 1.8,  1.8 ],
+
+        'vbig_low':        [ -30,   -7.,   -0.15, -0.7, 1.6,  1.6 ],
+        'vbig_low_b':      [ -28,   -11.,   -0.20, -0.65, 1.68, 1.68 ],
+
+        'vbig_low1':       [ -20,   -17.,   -0.35, -0.7, 1.96,  1.96 ],
+        'vbig_low1_b':     [ -23,   -5.,   -0.2, -0.7, 1.7,  1.7 ],
+        'vbig_low1_c':     [ -18,   -25.,   -0.35, -0.7, 1.8,  1.8 ],
+
+
+        'vbig_low2':       [ -30,   -27.,  -0.25, -0.6, 1.6,  1.6 ],
+        'vbig_low2_swoop': [ -25,   -22.,  0.1, -0.3, 1.4,  1.4 ],       
+        'vbig_low2_b':     [ -35,   -23.,  -0.125, -0.35, 1.4,  1.4 ],
+#        'big_left':        [ -40.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
+
+        'vbig_ai':         [ central_latitude+2,   central_longitude-4,   -0.15, -0.3, 1.6,  1.6 ],
+        'vvbig_ai':        [ central_latitude-1,   central_longitude+2,   -0.45, -0.45, 1.9,  1.9 ],
+        'vvvbig_ai':       [ central_latitude-2,   central_longitude+2,  -0.3, -0.6, 2.2,  2.2 ],
+        'vvvbig_ai_centre': [ central_latitude-6,   central_longitude-4,  -0.5, -0.6, 2.2,  2.2 ],
+
+        'vvvbig_ai_R':     [ central_latitude-2,   central_longitude-5,  -0.5, -0.6, 2.1,  2.1 ],
+        'vvvbig_ai_Up':    [ central_latitude-5,   central_longitude+10,  -0.2, -0.6, 2.1,  2.1 ],
+        # off screen
+        'os_right':        [ -24.,  -20.,  1.00,  1.,  0.6,  0.6 ],         
+        'os_below':        [ -24.,  -20.,  0.,  -0.6,  0.6,  0.6 ],         
+
+    }
+    pan_years = {
+        1970.: 'far_out_w',
+        1975.7: 'far_out_w',
+        #1976.5: 'far_out',
+        1978.:  'big', 
+        1980.:  'vbig',
+        1981.5: 'vbig_2',
+#        1983.: 'vbig',
+#        1984:   'vbig_low',
+#        1985.:  'vbig_low_b',        
+        1986.:  'vbig_low',
+        1987.:  'vbig_low_b',   
+        1988.:  'vbig_low',
+        1989.:  'vbig_low_b',   
+        1990.:  'vbig_low1',
+        1991.:  'vbig_low1_c',
+        1992.:  'vbig_low1_b',        
+        1993.:  'vbig_low1',
+        1994.:  'vbig_low1_b',   
+        1995.:  'vbig_low1',
+#        1996.:  'vbig_low1_b',   
+#        1997.:  'vbig_low1',
+        1998.:  'vbig_low1_b',                           
+        2000.:  'vbig_low2',
+        #2000.5: 'vbig_low2',
+        2001:   'vbig_low2_b',
+        2003.:  'vbig_low2',
+        2004.:  'big_left',
+        2005.:   'big',
+        2006:   'big_left',
+        2007:    'big',
+        2008.:  'big_right',
+        2009.:  'big_left',
+        2010.:   'big',        
+        2011.: 'vbig',
+        2012.:  'big_left',
+        2012.5:  'big',
+        2013.:  'big_left',
+        2013.5:  'big',
+        2014.:  'big_right',
+        2014.5:  'big_down',
+        2015.:  'big_right',
+        2015.5:  'big_left',
+        2016.:  'big_up',
+        2016.5:  'big_down',        
+        2017.:  'big_right',
+        2017.5:  'big_up',
+        2018.:  'big_left',
+        2018.5:  'big_down',  
+        #2012.5:  'big',
+        2019.: 'vbig_ai',
+        2019.75: 'vvvbig_ai_centre',
+        #2000.25: 'far_out',
+        2025.: 'vvfar_out', 
+        2028.: 'vvfar_out_b',
+        2029: 'far_out',
+        2030.: 'vvfar_out_b',
+        2031: 'vvfar_out',
+        2032.: 'far_out',
+        2040.: 'vbig_low',
+        2042.: 'vbig_low1',
+        2044.:  'vbig_low_b',  
+        2045.: 'vbig_low2',
+        2046.: 'vbig_low2_b',
+        2047.: 'vbig_low2',
+        2047.5: 'vbig_low2_swoop',
+        2048.: 'tiny_dot', #,
+        # These years have both globes.
+        # 2049.: 'vbig_low1',
+        # 2053.: 'big',
+        # 2054.: 'big_b',
+        # 2055.: 'vbig_low2_b',
+        # 2056: 'tiny_dot',
+        #2058.: 'tiny_dot', 
+        #2058.5: 'big_b',
+        2059.: 'big', 
+        2059.5: 'big_b',        
+        2060.: 'big_left',
+        2060.5: 'vbig_b',
+        2061.: 'vbig',
+        2061.5: 'vbig_b',
+        2062.: 'big_left',
+        2062.5: 'vbig_ai',
+        2064: 'big_down',
+        2065: 'vbig_low1',
+        2065.5: 'vvbig_ai',
+        2066: 'vbig',
+        2066.5: 'vvvbig_ai',
+        2067.: 'vvvbig_ai_R',
+        2067.5: 'vvvbig_ai_Up',
+        2068.: 'vvvbig_ai_R',
+        2069.1: 'vvvbig_ai_Up',
+        2070.5: 'tiny_dot_r',
+        2070.975: 'dot_r',
+        }
+make_global_panning_points()
+    
 def daily_plot(
         nc,
         t, 
@@ -1479,8 +1634,7 @@ def daily_plot(
     (year, month, day) = date_key
     dct = decimal_year(dt, year,month,day)
    
-
-    
+   
     # Create main figure.
     if video_format == '720p':
         image_size = [1280, 720]
@@ -1500,115 +1654,6 @@ def daily_plot(
 
     fig = pyplot.figure(facecolor='black')
     fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
-
-    # panning points:
-    pan={# name:           [  X,     Y,    L,    B,    W,    H ]
-        'tiny_dot':        [ -5.,  -85.,  0.6,  0.4,  0.05,  0.05, ], 
-        'tiny_dot_r':      [  5.,   85.,  0.75,  0.65,  0.05,  0.05, ], 
-        'dot_r':           [ -10.,  -15.,  0.75,  0.65,  0.005,  0.005, ], 
-
-
-        'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],    
-        'vvfar_out_w':     [ -24.,  -70.,  0.4,  0.3,  0.6,  0.6 ],         
-        'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.3,  0.7,  0.7 ],         
-
-        'vfar_out':        [ -28.,  -28.,  0.3,  0.2,  0.7,  0.7 ],        
-        'far_out':         [ -25.,  -25.,  0.3,  0.1,  0.8,  0.8 ],
-        'far_out_w':       [  65.,    5.,  0.3,  0.1,  0.8,  0.8 ],
-        'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
-        'big_b':           [ -21.,  -19,   0.05, -0.15, 1.3,  1.3 ],
-
-        'big_left':        [ -40.,  -22,   0.1,  -0.3, 1.2,  1.2 ],
-        'big_right':        [ -5.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
-
-        'vbig':            [ -10.,  -10,   0.0,  -0.3, 1.6,  1.6 ],
-        'vbig_b':          [ -10.,  -10,  -0.1,  -0.4, 1.8,  1.8 ],
-
-        'vbig_low':        [ -30,   -7.,   -0.15, -0.7, 1.6,  1.6 ],
-        'vbig_low_b':      [ -28,   -9.,   -0.20, -0.65, 1.68, 1.68 ],
-
-        'vbig_low1':       [ -20,   -17.,   -0.35, -0.7, 1.96,  1.96 ],
-        'vbig_low1_b':     [ -23,   -20.,   -0.33, -0.68, 1.9,  1.9 ],
-
-        'vbig_low2':       [ -30,   -27.,  -0.25, -0.6, 1.6,  1.6 ],
-        'vbig_low2_b':     [ -35,   -23.,  -0.125, -0.35, 1.4,  1.4 ],
-#        'big_left':        [ -40.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
-
-        'vbig_ai':         [ central_latitude,   central_longitude,   -0.15, -0.3, 1.6,  1.6 ],
-        'vvbig_ai':        [ central_latitude-1,   central_longitude+2,   -0.45, -0.45, 1.9,  1.9 ],
-        'vvvbig_ai':       [ central_latitude-2,   central_longitude,  -0.6, -0.6, 2.2,  2.2 ],
-        'vvvbig_ai_R':       [ central_latitude-2,   central_longitude,  -0.3, -0.6, 2.1,  2.1 ],
-
-        # off screen
-        'os_right':        [ -24.,  -20.,  1.00,  1.,  0.6,  0.6 ],         
-        'os_below':        [ -24.,  -20.,  0.,  -0.6,  0.6,  0.6 ],         
-
-    }
-    pan_years = {
-        1970.: 'far_out_w',
-        1975.7: 'far_out_w',
-        1976.5: 'far_out',
-        1978.:  'big', 
-        1980.:  'vbig',
-#        1983.: 'vbig',
-#        1984:   'vbig_low',
-#        1985.:  'vbig_low_b',        
-        1986.:  'vbig_low',
-        1987.:  'vbig_low_b',   
-        1988.:  'vbig_low',
-        1989.:  'vbig_low_b',   
-        1990.:  'vbig_low1',
-        1991.:  'vbig_low1',
-        1992.:  'vbig_low1_b',        
-        1993.:  'vbig_low1',
-        1994.:  'vbig_low1_b',   
-        1995.:  'vbig_low1',
-#        1996.:  'vbig_low1_b',   
-#        1997.:  'vbig_low1',
-        1998.:  'vbig_low1_b',                           
-        2000.:  'vbig_low2',
-        2000.5: 'vbig_low2',
-        2001:   'vbig_low2_b',
-        2003.:  'vbig_low2',
-        2004.:  'big_left',
-        2005.:   'big',
-        2006:   'big_left',
-        2007:    'big',
-        2008.:  'big_right',
-        2011.: 'vbig',
-        2017.: 'vbig_ai',
-        2019.75: 'vvvbig_ai',
-        #2000.25: 'far_out',
-        2025.: 'vvfar_out', 
-        2028.: 'vvfar_out_b',
-        2032.: 'far_out',
-        2040.: 'vbig_low',
-        2044.:  'vbig_low_b',        
-        2046.: 'vbig_low1',
-        2048.: 'tiny_dot', #,
-        2049.: 'vbig_low1',
-        2050.: 'vbig_low2',
-        2051.: 'vbig_low2_b',
-        2053.: 'big',
-        2055.: 'vbig_low2_b',
-        2056: 'tiny_dot',
-        2058.: 'big', 
-        2058.5: 'big_b',
-        2059.: 'big', 
-        2059.5: 'big_b',        
-        2060.: 'vbig',
-        2060.5: 'vbig_b',
-        2061.: 'vbig',
-        2061.25: 'vbig_b',
-        2061.75: 'vbig',
-        2062.: 'vbig_ai',
-        2064.: 'vvbig_ai',
-        2066.: 'vvvbig_ai',
-        2069.1: 'vvvbig_ai_R',
-        2070.5: 'tiny_dot_r',
-        2070.95: 'dot_r',
-
-        }
     
     pan_years_ts = pan_years.copy()
     # 1984 transision
@@ -1629,6 +1674,78 @@ def daily_plot(
     pan_years_anom[1997] = 'os_below'
     pan_years_anom[1998] = 'os_below'
 
+    #2048-2056 - both spinning:
+    pan_years_ts[2048  ] = 'tiny_dot_r'
+    pan_years_ts[2048.5] = 'tiny_dot_TL'
+    pan_years_ts[2049  ] = 'tiny_dot_TC'
+    pan_years_ts[2049.5] = 'tiny_dot_TR'
+    pan_years_ts[2050  ] = 'tiny_dot_MR'
+    pan_years_ts[2050.5] = 'tiny_dot_BR'    
+    pan_years_ts[2051  ] = 'tiny_dot_BC'    
+    pan_years_ts[2051.5] = 'tiny_dot_BL'    
+    pan_years_ts[2052  ] = 'tiny_dot_ML'    
+    pan_years_ts[2052.5] = 'tiny_dot_TL'    
+    pan_years_ts[2053  ] = 'tiny_dot_TC'
+    pan_years_ts[2053.5] = 'tiny_dot_TR'
+    pan_years_ts[2054  ] = 'tiny_dot_MR'
+    pan_years_ts[2054.5] = 'tiny_dot_BR'    
+    pan_years_ts[2055  ] = 'tiny_dot_BC'    
+    pan_years_ts[2055.5] = 'tiny_dot_BL'    
+    pan_years_ts[2056  ] = 'tiny_dot_ML'    
+    pan_years_ts[2056.5] = 'tiny_dot_TL'    
+    pan_years_ts[2057  ] = 'tiny_dot_ML'    
+    pan_years_ts[2057.5] = 'tiny_dot_BL'
+
+    pan_years_ts[2058] = 'tiny_dot'    
+  
+    pan_years_anom[2048  ] = 'tiny_dot'
+    pan_years_anom[2048.5] = 'tiny_dot_BR'
+    pan_years_anom[2049  ] = 'tiny_dot_BC'
+    pan_years_anom[2049.5] = 'tiny_dot_BL'
+    pan_years_anom[2050  ] = 'tiny_dot_ML'
+    pan_years_anom[2050.5] = 'tiny_dot_TL'    
+    pan_years_anom[2051  ] = 'tiny_dot_TC'    
+    pan_years_anom[2051.5] = 'tiny_dot_TR'    
+    pan_years_anom[2052  ] = 'tiny_dot_MR'    
+    pan_years_anom[2052.5] = 'tiny_dot_BR'    
+    pan_years_anom[2053  ] = 'tiny_dot_BC'
+    pan_years_anom[2053.5] = 'tiny_dot_BL'
+    pan_years_anom[2054  ] = 'tiny_dot_ML'
+    pan_years_anom[2054.5] = 'tiny_dot_TL'    
+    pan_years_anom[2055  ] = 'tiny_dot_TC'    
+    pan_years_anom[2055.5] = 'tiny_dot_TR'    
+    pan_years_anom[2056  ] = 'tiny_dot_MR'    
+    pan_years_anom[2056.5] = 'tiny_dot_BR' 
+    pan_years_anom[2057  ] = 'tiny_dot_MR'    
+    pan_years_anom[2057.5] = 'tiny_dot_TR'    
+
+    pan_years_anom[2058] = 'big_b'   
+
+    # #2048-2056 - both spinning:
+    # pan_years_ts[2048] = 'tiny_dot_r'
+    # pan_years_ts[2049] = 'tiny_dot_TL'
+    # pan_years_ts[2050] = 'tiny_dot_TC'
+    # pan_years_ts[2051] = 'tiny_dot_TR'
+    # pan_years_ts[2052] = 'tiny_dot_MR'
+    # pan_years_ts[2053] = 'tiny_dot_BR'    
+    # pan_years_ts[2054] = 'tiny_dot_BC'    
+    # pan_years_ts[2055] = 'tiny_dot_BL'    
+    # pan_years_ts[2056] = 'tiny_dot_ML'    
+    # pan_years_ts[2057] = 'tiny_dot_TL'    
+    # pan_years_ts[2058] = 'tiny_dot'    
+  
+    # pan_years_anom[2048] = 'tiny_dot'
+    # pan_years_anom[2049] = 'tiny_dot_BR'
+    # pan_years_anom[2050] = 'tiny_dot_BC'
+    # pan_years_anom[2051] = 'tiny_dot_BL'
+    # pan_years_anom[2052] = 'tiny_dot_ML'
+    # pan_years_anom[2053] = 'tiny_dot_TL'    
+    # pan_years_anom[2054] = 'tiny_dot_TC'    
+    # pan_years_anom[2055] = 'tiny_dot_TR'    
+    # pan_years_anom[2056] = 'tiny_dot_MR'    
+    # pan_years_anom[2057] = 'tiny_dot_BR'    
+    # pan_years_anom[2058] = 'big_b'    
+
     # 2020 is sudden
     globe_type_years={}
     globe_type_years.update({t:'ts' for t in np.arange(1970, 1983)})
@@ -1638,10 +1755,11 @@ def daily_plot(
     globe_type_years[1996] = 'both'
     globe_type_years.update({t:'ts' for t in np.arange(1997, 2020)})
 
-    # 2048 us a sudden change via the tiny_dot:
-    globe_type_years.update({t:'anomaly' for t in np.arange(2020, 2048)})
-    globe_type_years.update({t:'ts' for t in np.arange(2048, 2056)})
-    globe_type_years.update({t:'anomaly' for t in np.arange(2056, 2075)})
+    ## 2048 us a sudden change via the tiny_dot:
+    globe_type_years.update({t:'anomaly' for t in np.arange(2020, 2036)})
+    globe_type_years.update({t:'ts' for t in np.arange(2036, 2048)})
+    globe_type_years.update({t:'both' for t in np.arange(2048, 2058)})
+    globe_type_years.update({t:'anomaly' for t in np.arange(2058, 2075)})
 
     max_heatwaves_panning = {
         1976: 0.5,
@@ -1663,6 +1781,9 @@ def daily_plot(
         'main':  [0.9, 0.2, 0.02, 0.6],
         'above': [0.95, 1.0, 0.015, 0.45],
         'below': [0.95, -0.6, 0.015, 0.45],
+        'tophalf' : [0.9, 0.55, 0.02, 0.3],
+        'bottomhalf' : [0.9, 0.15, 0.02, 0.3],
+    
     }
     cbar_ax_loc_pann_ts = {}
     cbar_ax_loc_pann_anom = {}
@@ -1674,13 +1795,17 @@ def daily_plot(
         #plot_type2_m1 = globe_type_years[globe_years[i-1]]
 
         # situations: 
+        if plot_type2 == 'both':
+            cbar_ax_loc_pann_ts[yr] = cbar_ax_locs['tophalf']
+            cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['bottomhalf']
+
         if plot_type2 == 'ts':
             cbar_ax_loc_pann_ts[yr] = cbar_ax_locs['main']
-            cbar_ax_loc_pann_anom[yr-0.5] = cbar_ax_locs['below']
+            cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['below']
             #cbar_ax_loc_pann_anom[yr-1] = cbar_ax_locs['below']
                
         if plot_type2 == 'anomaly':
-            cbar_ax_loc_pann_ts[yr-0.5] = cbar_ax_locs['above']
+            cbar_ax_loc_pann_ts[yr] = cbar_ax_locs['above']
             #cbar_ax_loc_pann_ts[yr-0.5] = cbar_ax_locs['above']
             cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['main']
 
@@ -1722,7 +1847,7 @@ def daily_plot(
         #if datas_dict['thetao_con'][date_key]
         ax2 = add_mpa(ax2, dct, heatwaves=heatwaves, max_heatwave=max_heatwave, axes_size=axes_W)
 
-        add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
+        ax2 = add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
 
     if globe_type_yr in ['both', 'anomaly']:
         ortho_path_x = {yr: pan[value][0] for yr, value in pan_years_anom.items()}
@@ -1756,7 +1881,9 @@ def daily_plot(
         globe_type='anomaly'
         ax2b = plot_globe(ax2b, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
         ax2b = add_mpa(ax2b, dct, heatwaves=heatwaves, max_heatwave=max_heatwave, axes_size=axes_W)
-        add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
+
+        ax2b = add_cbar(fig, field=field,  globe_type=globe_type, cbar_ax_loc = cbar_ax_loc) #ax_cbar)
+
 
     # time series axes
     # Music is:
@@ -1765,10 +1892,10 @@ def daily_plot(
     # tops: pH
     # high Synth: Ztot
     axes_alphas = {
-        'thetao_con': {1970: 0., 1976.:0., 1976.15:1, 2075:1., 2076: 0.},
-        'O3_pH': {1970: 0., 1976.5:1, 1992:1,  2020:1, 2021:0., 2051:0, 2052:1, 2075:1.,  2076: 0.},
-        'Ptot_c_result': {1970: 0., 1976.5:1, 1984:1, 2020:1, 2021:0, 2044:1, 2075:1., 2076: 0.},
-        'Ztot_c_result': {1970: 0., 1999:1, 2000:1, 2020:1, 2021:0, 2060:1, 2075:1.,  2076: 0.},
+        'thetao_con': {1970: 0., 1976.:0., 1976.15:1, 2070.5:1., 2071: 0.},
+        'O3_pH': {1970: 0., 1976.5:1, 1992:1,  2020:1, 2021:0., 2051:0, 2052:1, 2070.5:1., 2071: 0.},
+        'Ptot_c_result': {1970: 0., 1976.5:1, 1984:1, 2020:1, 2021:0, 2044:1, 2070.5:1., 2071: 0.},
+        'Ztot_c_result': {1970: 0., 1999:1, 2000:1, 2020:1, 2021:0, 2060:1, 2070.5:1., 2071: 0.},
     }
 
     # when to show the time series.
@@ -1785,7 +1912,7 @@ def daily_plot(
 
     # Wheere the time series axes are:
     left = 0.08
-    widths = {1970: 0.3, 2067.5: 0.3, 2071: 0.55}
+    widths = {1970: 0.3, 2067: 0.35, 2068: 0.4, 2071: 0.55}
     width = calc_midoint(dct, widths)
 
     plot_heights =       {1: 0.6, 2: 0.3,  3: 0.2,  4: 0.17}
@@ -1829,9 +1956,9 @@ def daily_plot(
             1977: 2.5,
             1978: 2.7,
             1979: 3.1,
-            2000: 3.5,
-            2004: 3.0,
-            2010: 2.5,
+            2000: 4.5,
+            2004: 3.2,
+            2010: 3.,
             2016: 2.1,
             2020: 2.1,
             2021: 5.,
@@ -1842,11 +1969,11 @@ def daily_plot(
             2051: 4.,
             2059: 2.5,
             2060: 2.3,
-            2062.5: 2.5,
+            2064.: 5.,
 #           2065: 2.1,
 #           2069: 20,
             2069.5: 96.,
-            2071: 96.,
+            2071: 98.,
             2075: 95,
     }
 
@@ -1905,8 +2032,10 @@ def daily_plot(
             fig=fig, 
             ax=ax3,
         )        
-        ax3.text(0.02, 0.05, ''.join(['Temperature Anomaly', ' (', str(clim_range[0]), '-', str(clim_range[1]), ')']), 
-                 color='white', alpha=alpha_ax3, transform=ax3.transAxes)
+        # ax3.text(0.02, 0.05, ''.join(['Temperature Anomaly ', , str(clim_range[0]), '-', str(clim_range[1]), ]), 
+        #          color='white', alpha=alpha_ax3, transform=ax3.transAxes)
+        ax3.text(0.02, 0.05, 'Temperature Anomaly ',
+                 color='white', alpha=alpha_ax3, transform=ax3.transAxes)        
         ax3.set_ylabel(r'$\Delta \degree$'+'C', color='white', alpha=alpha_ax3,)
     
 
@@ -1971,7 +2100,7 @@ def daily_plot(
             fig=fig, 
             ax=ax5, 
             alpha=alpha_ax5)
-        ax5.text(0.02, 0.88, 'Phytoplankton', color='white',alpha=alpha_ax5, transform=ax5.transAxes)
+        ax5.text(0.02, 0.87, 'Phytoplankton', color='white',alpha=alpha_ax5, transform=ax5.transAxes)
         fig, ax5 = plot_musical_notes(datas_dict, dates_dict, 
             time_key=date_key, 
             decimal_t=dct,
@@ -2008,7 +2137,7 @@ def daily_plot(
             fig=fig, 
             ax=ax6, 
             alpha=alpha_ax6)
-        ax6.text(0.02, 0.88, 'Zooplankton', color='white', alpha=alpha_ax6, transform=ax6.transAxes)
+        ax6.text(0.02, 0.87, 'Zooplankton', color='white', alpha=alpha_ax6, transform=ax6.transAxes)
         fig, ax6 = plot_musical_notes(
             datas_dict, dates_dict, 
             time_key=date_key, 
@@ -2049,11 +2178,62 @@ def daily_plot(
     fig.text(left, 0.90, date_string, fontdict={'color':  'white', 'size': 12,})
     #fig.text(left, ax3_B+ y_height + 0.0075, date_string, fontdict=font)
 
+
+
     print('saving:', date_string, fn)  
     pyplot.savefig(fn, dpi=dpi)
     pyplot.close()
+
     return fn
     # end of daily_plot
+
+
+def calc_and_add_distortion(fn, decimal_t):
+    """
+    Adds distortion to the images.
+    More heatwave, more distortion.
+    """
+    output_file = fn.replace('.png', '_distorted.png')
+
+    if os.path.exists(output_file):
+        return output_file
+    
+    heatwaves = load_heatwaves()
+
+    reduced_heatwaves = {}
+    times = [time for time in sorted(heatwaves.keys())]
+    for t, time in enumerate(times):
+        if time > decimal_t: 
+            # no heatwaves in the future
+            continue
+
+        hwl_value = heatwaves[time]
+
+        if t > 0:
+            hwl_value_m1 = heatwaves[times[t-1]]
+            if hwl_value_m1 == hwl_value:
+                # Skip doubles - only show waves when note changes.
+                continue
+        reduced_heatwaves[time] = hwl_value
+
+    temperature_anom = heatwaves[decimal_t] # the current piano note
+    reduced_heatwaves_times = np.array(sorted(reduced_heatwaves.keys()))
+
+    if temperature_anom < 1.: 
+        # no distortion below 1 degree
+        return fn
+    
+    if reduced_heatwaves.get(decimal_t, False):
+        # Current time step is a new note.
+        time_diff = 0.
+    else:
+        # Calculate last first step.
+        time_init =  reduced_heatwaves_times[reduced_heatwaves_times < decimal_t].max()
+        time_diff = np.abs(decimal_t - time_init)
+       
+    print("calc_and_add_distortion", temperature_anom, time_diff, fn, '->', output_file)
+    output_file = add_distortion_to_fig(temperature_anom, time_diff, input_file=fn, output_file=output_file)
+    return output_file
 
 
 def get_aligned_clim(dt, year, month, day, clim_datas, clim_doy, clim_month):
@@ -2234,7 +2414,7 @@ def iterate_daily_plots(
         dcy = decimal_year(dt, dt.year, dt.month, dt.day)
         plot_every_days_ = plot_every_days
 
-        if dcy >= 2069.5:
+        if dcy >= 2069.75:
             plot_every_days_ = int(plot_every_days/3.) # 3x slower final year.
         if dcy > 2070. + 11./12.:
             plot_every_days_ = 1
@@ -2248,9 +2428,18 @@ def iterate_daily_plots(
         #clim_dat = Dataset(clim_dat_fn, 'r')       
         #clim_dat.close()
 
-        img = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat, no_new_plots=no_new_plots)
-        if img in [False, None]: continue
-        images.append(img)
+        # Make Daily_plot.
+        img_fn = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat, no_new_plots=no_new_plots)
+
+        if img_fn in [False, None]:
+            continue
+        if not do_distortion:
+            images.append(img_fn)
+        else:
+            distorted_fn = calc_and_add_distortion(img_fn, dcy)
+            #if year >= 2070:
+            #    add_distortion_to_fig(month+2, 0.,  input_file=distorted_fn, output_file = distorted_fn) 
+            images.append(distorted_fn)
     nc.close()
     return images
         #return
@@ -2428,7 +2617,28 @@ def main(field = 'thetao_con', no_new_data=True):
     return
 
 
-def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
+def reduce_years(temp_files, reduced_years):
+    """
+    Reduce the number of input files.
+    """
+    out_files = []
+    for fn in temp_files:
+        yr = fn.split('/')[-3]
+        if int(yr) not in reduced_years:
+            continue
+        print('Keeping', fn)
+        out_files.append(fn)
+    return out_files
+
+
+
+
+def make_daily_plots(
+        model='CNRM',
+        clim_range=[1976,1985],
+        plot_every_days=4, 
+        no_new_plots = False,
+):
     """
     Main tool for making daily plots.
     """
@@ -2489,9 +2699,13 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
         clim_stuff=clim_stuff['thetao_con']
     )
 
+    if len(reduced_years):
+        temp_files = reduce_years(temp_files, reduced_years)
+        years_str = str(reduced_years[0])+'-'+str(reduced_years[-1])
+    else:
+        years_str='Full'
+
     images = []
-    plot_every_days = 4  # 8**2  # 54*3  # 135
-    no_new_plots = False
     for fn in sorted(temp_files): #reverse=True)[:]:
         #nc = Dataset(fn, 'r')
         imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days, no_new_plots=no_new_plots)
@@ -2500,16 +2714,17 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
 
     # Make video links:  
     if no_new_plots:
-        video_frames = folder('video/frames/'+daily_count+'/NNP_'+str(plot_every_days))
+        video_frames = folder('video/frames/'+daily_count+'/'+years_str+'/NNP_'+str(plot_every_days))
     else:
-        video_frames = folder('video/frames/'+daily_count+'/'+str(plot_every_days))
+        video_frames = folder('video/frames/'+daily_count+'/'+years_str+'/'+str(plot_every_days))
 
-    video_path = folder('video/mp4/')+daily_count+'.mp4'
+    video_path = folder('video/mp4/')+daily_count+'_'+years_str+'_'+str(plot_every_days)+'.mp4'
     print('creating links in', video_frames)
     last_frame = 0
 
     for plot_id, img_fn in enumerate(sorted(images)):
         outpath = ''.join([video_frames, 'img'+str(plot_id).zfill(6), '.png'])
+        #add_distortion(img_fn, outpath)
         if not os.path.exists(outpath):
             os.symlink(os.path.abspath(img_fn), os.path.abspath(outpath))
         last_frame=plot_id
@@ -2552,7 +2767,14 @@ def make_daily_plots(model='CNRM', clim_range=[1976,1985]):
 
 def  run_all():
     failures = {}
-    make_daily_plots()
+
+    global video_format
+    video_format = '4K' #'720p' # 'UHD'
+    make_daily_plots(plot_every_days=4) #, no_new_plots=True)
+    return    
+    plot_every_days = 16 # 8*8  # 54*3  # 135
+
+    make_daily_plots(plot_every_days=plot_every_days)
     #main(field='O3_pH') 
     return
     for field in ['Ptot_c_result', 'Ztot_c_result', 'Ptot_Chl_result', 'Ptot_NPP_result', 'O3_pH']:
@@ -2572,3 +2794,4 @@ def  run_all():
 if __name__ == "__main__":
     run_all()
 
+4
