@@ -62,7 +62,7 @@ def add_distortion_to_fig(temperature_anom, time, input_file='', output_file = '
     #blend is high
     level = int(temperature_anom)
     
-    if level < 1.0:
+    if temperature_anom < 1.0:
         # no distortion for low heatwaves.        
         return input_file
 
@@ -83,7 +83,7 @@ def add_distortion_to_fig(temperature_anom, time, input_file='', output_file = '
     time = np.clip(time, 0., 90.)
 
     # cos, so when level is 3 and t=0, blend is 100%.
-    blend = np.clip(math.cos(math.radians(time_in_rad)), 0., 1.) * level/3.
+    blend = np.clip(math.cos(math.radians(time_in_rad)), 0., 1.) # * level/3.
     np.clip(blend, 0., 1.) 
    
     #if input_file == output_file:
@@ -92,21 +92,22 @@ def add_distortion_to_fig(temperature_anom, time, input_file='', output_file = '
     im = Image.open(input_file)
 
     #filter = 
-    im1 = im.filter(ImageFilter.EDGE_ENHANCE_MORE)
-    im1 = Image.blend(im, im1, blend)
+    #im1 = im.filter(ImageFilter.EDGE_ENHANCE_MORE)
 
     # enhance sharpness, contrast and brightness in line with level.
-    im3 = ImageEnhance.Sharpness(im1)
-    im3 = im3.enhance(level)
-    im3 = ImageEnhance.Contrast(im3)
-    im3 = im3.enhance(1. + level/10.)
+    #im3 = ImageEnhance.Sharpness(i1)
+    #im3 = im3.enhance(10.)
+    im3 = ImageEnhance.Contrast(im)
+    im3 = im3.enhance(1. + temperature_anom/15.)
     im3 = ImageEnhance.Brightness(im3)
-    im3 = im3.enhance(1. + level/10.)
+    im3 = im3.enhance(1. + temperature_anom/15.)
 
     #im1 = add_noise(im1, noise_level)
-          
+
+    im1 = Image.blend(im, im3, blend)
+
     im1.save(output_file)
-    
+
     return output_file
 
 def test_distortion(temperature_anom, time, input_file='', output_file = ''):

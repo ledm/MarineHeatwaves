@@ -34,10 +34,11 @@ from add_distortion import add_distortion_to_fig
 #from .earthsystemmusic2 import music_utils as mutils 
 #from earthsystemmusic2.climate_music_maker import climate_music_maker
 
-daily_count = 'daily16'
+daily_count = 'daily17'
+global_plot_every_days=2
 video_format = False # '720p' # '4K' #'720p' # 'UHD'
-do_distortion = True
-reduced_years = np.arange(2050, 2070)
+do_distortion = False
+reduced_years = np.arange(1970, 2072)
 
 
 central_longitude = -14.36816 #W #-160.+3.5
@@ -996,7 +997,8 @@ def set_axes_alpha(fig, ax, alpha=1.,axes_color='white'):
     white_alpha = (1,1,1,alpha)
     black_alpha = (0,0,0,alpha)
 
-    ax.set_facecolor((1., 1., 1., 0.)) # transparent
+    #ax.set_facecolor((1., 1., 1., 0.35)) # transparent black
+    ax.set_facecolor((0., 0., 0., 0.1)) # transparent black
 
     if axes_color == 'white':
         color_alpha = white_alpha
@@ -1044,6 +1046,8 @@ def add_cbar(fig, ax=None, field='thetao_con', globe_type='ts', cbar_ax_loc = [0
     
     #ax_cbar = fig.add_axes([0.85, 0.2, 0.05, 0.6]) # (left, bottom, width, height)
     axc = fig.add_axes(cbar_ax_loc, zorder=1000) # (left, bottom, width, height)
+    # axc.set_facecolor((0., 0., 0., 0.35)) # transparent black
+
     cbar = pyplot.colorbar(cax=axc, orientation="vertical", extend='both',  )
 
     # font size scales with height of cbar    
@@ -1407,7 +1411,8 @@ def get_image_path(date_key, dt):
     """
     Get a predeinfed path name
     """
-    fn = folder('images/'+daily_count+'_'+video_format+'/')+'daily'
+    year=str(date_key[0])
+    fn = folder('images/'+daily_count+'_'+video_format+'/'+year)+'daily'
     date_string = '-'.join([mn_str(tt) for tt in date_key])
     fn = ''.join([fn, '_', date_string])+ '.png'
     return fn
@@ -1460,13 +1465,15 @@ def make_global_panning_points():
         'tiny_dot_TC':     [ 20.,  -5.,   centre,  top,  both_sizes,  both_sizes, ], 
         'tiny_dot_TR':     [ 15.,  15.,  right-margin,  top-margin,  both_sizes*1.,  both_sizes*1. , ], 
     
-        'tiny_dot_r':      [  35.,   65.,  0.75,  0.65,  0.05,  0.05, ], 
+        'tiny_dot_r':      [  35.,   65.,  0.75,  0.65,  0.05,  0.05, ],
+        'tiny_dot_2':      [  35.,   0.,  0.75,  0.65,  0.05,  0.05, ], 
+
         'dot_r':           [ -10.,  -15.,  0.75,  0.65,  0.005,  0.005, ], 
 
 
         'vvfar_out':       [ -24.,  -20.,  0.4,  0.3,  0.6,  0.6 ],    
         'vvfar_out_w':     [ -24.,  -70.,  0.4,  0.3,  0.6,  0.6 ],         
-        'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.3,  0.7,  0.7 ],         
+        'vvfar_out_b':     [ -24.,  -20.,  0.35,  0.2,  0.7,  0.7 ],         
 
         'vfar_out':        [ -28.,  -28.,  0.3,  0.2,  0.7,  0.7 ],        
         'far_out':         [ -25.,  -25.,  0.3,  0.1,  0.8,  0.8 ],
@@ -1474,11 +1481,12 @@ def make_global_panning_points():
         'big':             [ -20.,  -20,   0.1,  -0.1, 1.2,  1.2 ],
         'big_b':           [ -21.,  -19,   0.05, -0.15, 1.3,  1.3 ],
 
-        'big_left':        [ -40.,  -22,   0.1,  -0.3, 1.2,  1.2 ],
+        'big_left':        [ -28.,  -22,   0.1,  -0.3, 1.2,  1.2 ],
+        'big_left_b':      [ -24.,  -18,   0.1,  -0.3, 1.3,  1.3 ],
         'big_right':       [ -5.,  -22,   0.1,  -0.1, 1.2,  1.2 ],
 
-        'big_up':          [ -5., -42,   0.1,  -0.3, 1.2,  1.2 ],
-        'big_down':        [ -9.,  32,   0.1,  -0.1, 1.2,  1.2 ],
+        'big_up':          [ -5., -27.,   0.1,  0., 1.0,  1.0 ],
+        'big_down':        [ -9.,  25,    0.125,  -0.15, 1.5,  1.5 ],
 
         'vbig':            [ -10.,  -10,   0.0,  -0.3, 1.6,  1.6 ],
         'vbig_2':          [ 0.5, 2,   0.0,  -0.2, 1.5,  1.5 ],
@@ -1503,11 +1511,14 @@ def make_global_panning_points():
         'vvvbig_ai_centre': [ central_latitude-6,   central_longitude-4,  -0.5, -0.6, 2.2,  2.2 ],
 
         'vvvbig_ai_R':     [ central_latitude-2,   central_longitude-5,  -0.5, -0.6, 2.1,  2.1 ],
+        'vvvbig_ai_R_out':     [ central_latitude-2,   central_longitude-5,  -0.65, -0.75, 2.4,  2.4 ],
+            
         'vvvbig_ai_Up':    [ central_latitude-5,   central_longitude+10,  -0.2, -0.6, 2.1,  2.1 ],
         # off screen
         'os_right':        [ -24.,  -20.,  1.00,  1.,  0.6,  0.6 ],         
         'os_below':        [ -24.,  -20.,  0.,  -0.6,  0.6,  0.6 ],         
-
+        'os_above':        [  45.,  20.,   0.3,  1.,  0.45,  0.45 ], 
+        'os_above_vbig':   [ 10.,  10,   0.0,  1.0, 1.6,  1.6 ],
     }
     pan_years = {
         1970.: 'far_out_w',
@@ -1515,13 +1526,14 @@ def make_global_panning_points():
         #1976.5: 'far_out',
         1978.:  'big', 
         1980.:  'vbig',
-        1981.5: 'vbig_2',
-#        1983.: 'vbig',
-#        1984:   'vbig_low',
-#        1985.:  'vbig_low_b',        
+        1981.: 'vbig_2',
+        1982.: 'vbig',
+        1983.: 'vbig_2',
+        1984:   'vbig_low',
+        1985.:  'vbig_low_b',        
         1986.:  'vbig_low',
         1987.:  'vbig_low_b',   
-        1988.:  'vbig_low',
+        #1988.:  'vbig_low',
         1989.:  'vbig_low_b',   
         1990.:  'vbig_low1',
         1991.:  'vbig_low1_c',
@@ -1534,20 +1546,20 @@ def make_global_panning_points():
         1998.:  'vbig_low1_b',                           
         2000.:  'vbig_low2',
         #2000.5: 'vbig_low2',
-        2001:   'vbig_low2_b',
+        2002:   'vbig_low2_b',
         2003.:  'vbig_low2',
         2004.:  'big_left',
         2005.:   'big',
         2006:   'big_left',
         2007:    'big',
         2008.:  'big_right',
-        2009.:  'big_left',
+        2009.:  'big_left_b',
         2010.:   'big',        
         2011.: 'vbig',
         2012.:  'big_left',
-        2012.5:  'big',
+        2012.5:  'vbig',
         2013.:  'big_left',
-        2013.5:  'big',
+        2013.5:  'vbig',
         2014.:  'big_right',
         2014.5:  'big_down',
         2015.:  'big_right',
@@ -1562,7 +1574,7 @@ def make_global_panning_points():
         2019.: 'vbig_ai',
         2019.75: 'vvvbig_ai_centre',
         #2000.25: 'far_out',
-        2025.: 'vvfar_out', 
+        2024.: 'vvfar_out', 
         2028.: 'vvfar_out_b',
         2029: 'far_out',
         2030.: 'vvfar_out_b',
@@ -1592,20 +1604,26 @@ def make_global_panning_points():
         2061.5: 'vbig_b',
         2062.: 'big_left',
         2062.5: 'vbig_ai',
+        2063.: 'big_left',
+        2063.5: 'vbig_ai',        
         2064: 'big_down',
+        2064.5: 'vbig_ai',
         2065: 'vbig_low1',
         2065.5: 'vvbig_ai',
         2066: 'vbig',
-        2066.5: 'vvvbig_ai',
+        2066.5: 'vvvbig_ai_R_out',
         2067.: 'vvvbig_ai_R',
-        2067.5: 'vvvbig_ai_Up',
+        2067.5: 'vvvbig_ai_R_out',
         2068.: 'vvvbig_ai_R',
-        2069.1: 'vvvbig_ai_Up',
-        2070.5: 'tiny_dot_r',
+        2068.5: 'vvvbig_ai_R_out',
+        2069.0: 'vvvbig_ai_Up',
+        2069.5: 'vvvbig_ai_R_out',
+        2070.5: 'tiny_dot_2',
         2070.975: 'dot_r',
         }
 make_global_panning_points()
     
+
 def daily_plot(
         nc,
         t, 
@@ -1657,14 +1675,15 @@ def daily_plot(
     
     pan_years_ts = pan_years.copy()
     # 1984 transision
-    pan_years_ts[1983.5] = 'vbig'
-    pan_years_ts[1984.5] = 'os_right'
-    pan_years_ts[1984.5] = 'os_right'
 
+    pan_years_ts[1987.5] = 'vbig'
+    pan_years_ts[1988] = 'os_right'
+    pan_years_ts[1989.0] = 'os_right'
+  
     pan_years_anom = pan_years.copy()
-    pan_years_anom[1982.5] = 'os_below'
-    pan_years_anom[1983.5] = 'os_below'
-    pan_years_anom[1984.5] = 'vbig'
+    pan_years_anom[1987.0] = 'os_below'
+    pan_years_anom[1987.5] = 'os_below'
+    pan_years_anom[1988] = 'vbig'
 
     # 1997 transition
     pan_years_ts[1995] = 'os_right'
@@ -1674,52 +1693,108 @@ def daily_plot(
     pan_years_anom[1997] = 'os_below'
     pan_years_anom[1998] = 'os_below'
 
+    #2020 transition is sudden.
+
+    # 2036 transition to ts.
+    pan_years_ts[2035.] = 'os_above_vbig'
+    pan_years_ts[2036.] = 'os_above_vbig'
+    pan_years_ts[2036.5] = 'vbig'
+
+    pan_years_anom[2035] = 'vbig'
+    pan_years_anom[2036.5] = 'os_below'
+    pan_years_anom[2037.5] = 'os_below'
+
     #2048-2056 - both spinning:
     pan_years_ts[2048  ] = 'tiny_dot_r'
-    pan_years_ts[2048.5] = 'tiny_dot_TL'
-    pan_years_ts[2049  ] = 'tiny_dot_TC'
-    pan_years_ts[2049.5] = 'tiny_dot_TR'
-    pan_years_ts[2050  ] = 'tiny_dot_MR'
-    pan_years_ts[2050.5] = 'tiny_dot_BR'    
-    pan_years_ts[2051  ] = 'tiny_dot_BC'    
-    pan_years_ts[2051.5] = 'tiny_dot_BL'    
-    pan_years_ts[2052  ] = 'tiny_dot_ML'    
-    pan_years_ts[2052.5] = 'tiny_dot_TL'    
-    pan_years_ts[2053  ] = 'tiny_dot_TC'
-    pan_years_ts[2053.5] = 'tiny_dot_TR'
-    pan_years_ts[2054  ] = 'tiny_dot_MR'
-    pan_years_ts[2054.5] = 'tiny_dot_BR'    
-    pan_years_ts[2055  ] = 'tiny_dot_BC'    
-    pan_years_ts[2055.5] = 'tiny_dot_BL'    
-    pan_years_ts[2056  ] = 'tiny_dot_ML'    
-    pan_years_ts[2056.5] = 'tiny_dot_TL'    
-    pan_years_ts[2057  ] = 'tiny_dot_ML'    
-    pan_years_ts[2057.5] = 'tiny_dot_BL'
-
+    pan_years_ts[2048.5  ] = 'tiny_dot_TC'
+    pan_years_ts[2049  ] = 'tiny_dot_TL'
+    pan_years_ts[2049.5  ] = 'tiny_dot_TC'
+    pan_years_ts[2050  ] = 'tiny_dot_TR'
+    pan_years_ts[2051  ] = 'tiny_dot_BR'    
+    pan_years_ts[2051.5  ] = 'tiny_dot_BC'    
+    pan_years_ts[2052  ] = 'tiny_dot_BL'
+    pan_years_ts[2052.5  ] = 'tiny_dot_BC'      
+    pan_years_ts[2053  ] = 'tiny_dot_BR'
+    pan_years_ts[2054  ] = 'tiny_dot_TR'
+    pan_years_ts[2054.5  ] = 'tiny_dot_TC'
+    pan_years_ts[2055  ] = 'tiny_dot_TL'
+    pan_years_ts[2055.25  ] = 'tiny_dot_TC'
+    pan_years_ts[2055.5  ] = 'tiny_dot_TL'
+    pan_years_ts[2055.75  ] = 'tiny_dot_TC'
+    pan_years_ts[2056  ] = 'tiny_dot_TR'
+    pan_years_ts[2056.5  ] = 'tiny_dot_BR'
+    pan_years_ts[2057  ] = 'tiny_dot_TR'    
+    pan_years_ts[2057.25  ] = 'tiny_dot_MR'    
     pan_years_ts[2058] = 'tiny_dot'    
   
     pan_years_anom[2048  ] = 'tiny_dot'
-    pan_years_anom[2048.5] = 'tiny_dot_BR'
-    pan_years_anom[2049  ] = 'tiny_dot_BC'
-    pan_years_anom[2049.5] = 'tiny_dot_BL'
-    pan_years_anom[2050  ] = 'tiny_dot_ML'
-    pan_years_anom[2050.5] = 'tiny_dot_TL'    
-    pan_years_anom[2051  ] = 'tiny_dot_TC'    
-    pan_years_anom[2051.5] = 'tiny_dot_TR'    
-    pan_years_anom[2052  ] = 'tiny_dot_MR'    
-    pan_years_anom[2052.5] = 'tiny_dot_BR'    
-    pan_years_anom[2053  ] = 'tiny_dot_BC'
-    pan_years_anom[2053.5] = 'tiny_dot_BL'
-    pan_years_anom[2054  ] = 'tiny_dot_ML'
-    pan_years_anom[2054.5] = 'tiny_dot_TL'    
-    pan_years_anom[2055  ] = 'tiny_dot_TC'    
-    pan_years_anom[2055.5] = 'tiny_dot_TR'    
-    pan_years_anom[2056  ] = 'tiny_dot_MR'    
-    pan_years_anom[2056.5] = 'tiny_dot_BR' 
-    pan_years_anom[2057  ] = 'tiny_dot_MR'    
-    pan_years_anom[2057.5] = 'tiny_dot_TR'    
-
+    pan_years_anom[2048.5  ] = 'tiny_dot_BC'
+    pan_years_anom[2049  ] = 'tiny_dot_BR'
+    pan_years_anom[2049.5  ] = 'tiny_dot_BC'
+    pan_years_anom[2050  ] = 'tiny_dot_BL'
+    pan_years_anom[2051  ] = 'tiny_dot_TL'  
+    pan_years_anom[2051.5  ] = 'tiny_dot_TC'    
+    pan_years_anom[2052  ] = 'tiny_dot_TR' 
+    pan_years_anom[2052.5  ] = 'tiny_dot_TC'    
+    pan_years_anom[2053  ] = 'tiny_dot_TL'
+    pan_years_anom[2054  ] = 'tiny_dot_BL'
+    pan_years_anom[2054.5 ] = 'tiny_dot_BC'
+    pan_years_anom[2055  ] = 'tiny_dot_BR' 
+    pan_years_anom[2055.25 ] = 'tiny_dot_BC'
+    pan_years_anom[2055.5  ] = 'tiny_dot_BR' 
+    pan_years_anom[2055.75 ] = 'tiny_dot_BC'
+    pan_years_anom[2056  ] = 'tiny_dot_BL'    
+    pan_years_anom[2056.5 ] = 'tiny_dot_TL'    
+    pan_years_anom[2057  ] = 'tiny_dot_BL' 
+    pan_years_anom[2057.25 ] = 'tiny_dot_ML'    
     pan_years_anom[2058] = 'big_b'   
+
+    # #2048-2056 - both spinning:
+    # pan_years_ts[2048  ] = 'tiny_dot_r'
+    # pan_years_ts[2048.5] = 'tiny_dot_TL'
+    # pan_years_ts[2049  ] = 'tiny_dot_TC'
+    # pan_years_ts[2049.5] = 'tiny_dot_TR'
+    # pan_years_ts[2050  ] = 'tiny_dot_MR'
+    # pan_years_ts[2050.5] = 'tiny_dot_BR'    
+    # pan_years_ts[2051  ] = 'tiny_dot_BC'    
+    # pan_years_ts[2051.5] = 'tiny_dot_BL'    
+    # pan_years_ts[2052  ] = 'tiny_dot_ML'    
+    # pan_years_ts[2052.5] = 'tiny_dot_TL'    
+    # pan_years_ts[2053  ] = 'tiny_dot_TC'
+    # pan_years_ts[2053.5] = 'tiny_dot_TR'
+    # pan_years_ts[2054  ] = 'tiny_dot_MR'
+    # pan_years_ts[2054.5] = 'tiny_dot_BR'    
+    # pan_years_ts[2055  ] = 'tiny_dot_BC'    
+    # pan_years_ts[2055.5] = 'tiny_dot_BL'    
+    # pan_years_ts[2056  ] = 'tiny_dot_ML'    
+    # pan_years_ts[2056.5] = 'tiny_dot_TL'    
+    # pan_years_ts[2057  ] = 'tiny_dot_ML'    
+    # pan_years_ts[2057.5] = 'tiny_dot_BL'
+
+    # pan_years_ts[2058] = 'tiny_dot'    
+  
+    # pan_years_anom[2048  ] = 'tiny_dot'
+    # pan_years_anom[2048.5] = 'tiny_dot_BR'
+    # pan_years_anom[2049  ] = 'tiny_dot_BC'
+    # pan_years_anom[2049.5] = 'tiny_dot_BL'
+    # pan_years_anom[2050  ] = 'tiny_dot_ML'
+    # pan_years_anom[2050.5] = 'tiny_dot_TL'    
+    # pan_years_anom[2051  ] = 'tiny_dot_TC'    
+    # pan_years_anom[2051.5] = 'tiny_dot_TR'    
+    # pan_years_anom[2052  ] = 'tiny_dot_MR'    
+    # pan_years_anom[2052.5] = 'tiny_dot_BR'    
+    # pan_years_anom[2053  ] = 'tiny_dot_BC'
+    # pan_years_anom[2053.5] = 'tiny_dot_BL'
+    # pan_years_anom[2054  ] = 'tiny_dot_ML'
+    # pan_years_anom[2054.5] = 'tiny_dot_TL'    
+    # pan_years_anom[2055  ] = 'tiny_dot_TC'    
+    # pan_years_anom[2055.5] = 'tiny_dot_TR'    
+    # pan_years_anom[2056  ] = 'tiny_dot_MR'    
+    # pan_years_anom[2056.5] = 'tiny_dot_BR' 
+    # pan_years_anom[2057  ] = 'tiny_dot_MR'    
+    # pan_years_anom[2057.5] = 'tiny_dot_TR'    
+
+    # pan_years_anom[2058] = 'big_b'   
 
     # #2048-2056 - both spinning:
     # pan_years_ts[2048] = 'tiny_dot_r'
@@ -1748,16 +1823,18 @@ def daily_plot(
 
     # 2020 is sudden
     globe_type_years={}
-    globe_type_years.update({t:'ts' for t in np.arange(1970, 1983)})
-    globe_type_years[1983] = 'both'
-    globe_type_years[1984] = 'both'
-    globe_type_years.update({t:'anomaly' for t in np.arange(1985, 1996)})
+    globe_type_years.update({t:'ts' for t in np.arange(1970, 1988)})
+    globe_type_years[1987] = 'both'
+    globe_type_years.update({t:'anomaly' for t in np.arange(1988, 1996)}) 
     globe_type_years[1996] = 'both'
     globe_type_years.update({t:'ts' for t in np.arange(1997, 2020)})
 
     ## 2048 us a sudden change via the tiny_dot:
     globe_type_years.update({t:'anomaly' for t in np.arange(2020, 2036)})
-    globe_type_years.update({t:'ts' for t in np.arange(2036, 2048)})
+    globe_type_years[2036] = 'both'
+
+
+    globe_type_years.update({t:'ts' for t in np.arange(2037, 2048)})
     globe_type_years.update({t:'both' for t in np.arange(2048, 2058)})
     globe_type_years.update({t:'anomaly' for t in np.arange(2058, 2075)})
 
@@ -1809,7 +1886,47 @@ def daily_plot(
             #cbar_ax_loc_pann_ts[yr-0.5] = cbar_ax_locs['above']
             cbar_ax_loc_pann_anom[yr] = cbar_ax_locs['main']
 
-        
+    # transistions
+    cbar_ax_loc_pann_ts[1986] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[1986] = cbar_ax_locs['below']
+    cbar_ax_loc_pann_ts[1987] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[1987] = cbar_ax_locs['below'] 
+    cbar_ax_loc_pann_ts[1987.5] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[1987.5] = cbar_ax_locs['below']     
+    cbar_ax_loc_pann_ts[1987.75] = cbar_ax_locs['tophalf']
+    cbar_ax_loc_pann_anom[1987.75] = cbar_ax_locs['bottomhalf']         
+    cbar_ax_loc_pann_ts[1988] = cbar_ax_locs['above']
+    cbar_ax_loc_pann_anom[1988] = cbar_ax_locs['main']
+
+    cbar_ax_loc_pann_ts[1996] = cbar_ax_locs['above']
+    cbar_ax_loc_pann_anom[1996] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_ts[1996.5] = cbar_ax_locs['tophalf']
+    cbar_ax_loc_pann_anom[1996.5] = cbar_ax_locs['bottomhalf']    
+    cbar_ax_loc_pann_ts[1997] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[1997] = cbar_ax_locs['below'] 
+
+    # abrupt change:
+    cbar_ax_loc_pann_ts[2019.85] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_ts[2020] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[2020] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[2020.1] = cbar_ax_locs['main']
+
+
+    cbar_ax_loc_pann_ts[2036] = cbar_ax_locs['above']
+    cbar_ax_loc_pann_anom[2036] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_ts[2036.5] = cbar_ax_locs['tophalf']
+    cbar_ax_loc_pann_anom[2036.5] = cbar_ax_locs['bottomhalf']    
+    cbar_ax_loc_pann_ts[2037] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[2037] = cbar_ax_locs['below'] 
+
+
+    cbar_ax_loc_pann_ts[2047] = cbar_ax_locs['main']    
+    cbar_ax_loc_pann_anom[2047] = cbar_ax_locs['below']
+    cbar_ax_loc_pann_ts[2047.5] = cbar_ax_locs['main']
+    cbar_ax_loc_pann_anom[2047.5] = cbar_ax_locs['below']    
+    cbar_ax_loc_pann_ts[2048] = cbar_ax_locs['tophalf']
+    cbar_ax_loc_pann_anom[2048] = cbar_ax_locs['bottomhalf']   
+
     globe_type_yr = globe_type_years[year] #.get(year, 'ts')
     if globe_type_yr in ['both', 'ts']:
         ortho_path_x = {yr: pan[value][0] for yr, value in pan_years_ts.items()}
@@ -2411,10 +2528,14 @@ def iterate_daily_plots(
     images = []
     for t, dt in enumerate(dates[:]):
         date_key = (dt.year, dt.month, dt.day)
+        if date_key[1] == 2 and date_key[2] == 29:
+            # skip problematic leap days
+            continue
+
         dcy = decimal_year(dt, dt.year, dt.month, dt.day)
         plot_every_days_ = plot_every_days
 
-        if dcy >= 2069.75:
+        if dcy >= 2069.95:
             plot_every_days_ = int(plot_every_days/3.) # 3x slower final year.
         if dcy > 2070. + 11./12.:
             plot_every_days_ = 1
@@ -2631,12 +2752,62 @@ def reduce_years(temp_files, reduced_years):
     return out_files
 
 
+def thumbnail(field = 'thetao_con',video_format = '4K',  globe_type='ts'):
+    """
+    Make a thumbnail figure
+    """
+    if video_format == '4K':
+        image_size = [3840., 2160.]
+        dpi = 300.
+
+
+
+    files = [
+        "/data/proteus3/scratch/gig/MissionAtlantic/CNRM_ssp370/OUTPUT/CNRM_ssp370/2060/12/CNRM_ssp370_1d_20601201_20601231_grid_T.nc",
+        "/data/proteus3/scratch/gig/MissionAtlantic/CNRM_hist/OUTPUT/CNRM_hist/1999/06/CNRM_hist_1d_19990601_19990630_grid_T.nc",
+        "/data/proteus3/scratch/gig/MissionAtlantic/CNRM_ssp370/OUTPUT/CNRM_ssp370/2024/04/CNRM_ssp370_1d_20240401_20240430_grid_T.nc",
+        ]
+    date_keys = [
+        (2060, 12, 1), 
+        (1999, 6, 1), 
+        (2024, 4, 1), 
+    ]
+
+    for fn, date_key in zip(files, date_keys):
+        fig = pyplot.figure(facecolor='black')
+        fig.set_size_inches(image_size[0]/dpi,image_size[1]/dpi)
+
+        clim_range=[1976,1985] # shouldn't matter?
+
+
+        nc = Dataset(fn, 'r')
+        date_str = ''.join([str(x) for x in date_key])
+        t = 0 
+        clim_dat = get_clim_dat(fn, date_key, field, clim_range)
+
+        ortho_pro=ccrs.Orthographic(-15., 7.5)
+        proj = ccrs.PlateCarree()
+
+        ax2 = fig.add_axes([0.3, 0.05, 0.75, 0.9], projection=ortho_pro) # (left, bottom, width, height)
+
+        ax2 = plot_globe(ax2, nc=nc, t=t, quick=False, globe_type=globe_type, clim_dat=clim_dat)
+        
+        ax2.add_patch(mpatches.Circle(xy=[central_longitude, central_latitude, ], linewidth=1.5,
+                radius=mpa_radius, ec='white', fc=(0., 0., 0., 0.), transform=proj, zorder=31))
+        
+        
+        fn = folder('images/thumbnail/')+'thumbnail_'+globe_type+'_'+video_format+'_'+date_str+'.png'
+        print('Saving', fn)
+        pyplot.savefig(fn)
+        pyplot.close()
+
+
 
 
 def make_daily_plots(
         model='CNRM',
         clim_range=[1976,1985],
-        plot_every_days=4, 
+        plot_every_days=global_plot_every_days, 
         no_new_plots = False,
 ):
     """
@@ -2770,7 +2941,11 @@ def  run_all():
 
     global video_format
     video_format = '4K' #'720p' # 'UHD'
-    make_daily_plots(plot_every_days=4) #, no_new_plots=True)
+    make_daily_plots(plot_every_days=global_plot_every_days) #, no_new_plots=True)
+
+    #thumbnail(globe_type='ts')
+    #thumbnail(globe_type='anomaly')    
+
     return    
     plot_every_days = 16 # 8*8  # 54*3  # 135
 
@@ -2794,4 +2969,4 @@ def  run_all():
 if __name__ == "__main__":
     run_all()
 
-4
+
