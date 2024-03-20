@@ -38,7 +38,8 @@ daily_count = 'daily17'
 global_plot_every_days=2
 video_format = False # '720p' # '4K' #'720p' # 'UHD'
 do_distortion = False
-reduced_years = np.arange(1970, 2072)
+reduced_years = np.arange(1975, 2072)
+no_new_plots=False
 
 
 central_longitude = -14.36816 #W #-160.+3.5
@@ -1636,7 +1637,7 @@ def daily_plot(
         field='thetao_con', 
         clim_dat=None,
         plot_every_days=9,
-        no_new_plots=False):
+        ):
     """
     The main daily plot.
     returns image path
@@ -1722,7 +1723,9 @@ def daily_plot(
     pan_years_ts[2055.5  ] = 'tiny_dot_TL'
     pan_years_ts[2055.75  ] = 'tiny_dot_TC'
     pan_years_ts[2056  ] = 'tiny_dot_TR'
+    pan_years_ts[2056.25  ] = 'tiny_dot_MR'
     pan_years_ts[2056.5  ] = 'tiny_dot_BR'
+    pan_years_ts[2056.75  ] = 'tiny_dot_MR'
     pan_years_ts[2057  ] = 'tiny_dot_TR'    
     pan_years_ts[2057.25  ] = 'tiny_dot_MR'    
     pan_years_ts[2058] = 'tiny_dot'    
@@ -1744,7 +1747,9 @@ def daily_plot(
     pan_years_anom[2055.5  ] = 'tiny_dot_BR' 
     pan_years_anom[2055.75 ] = 'tiny_dot_BC'
     pan_years_anom[2056  ] = 'tiny_dot_BL'    
+    pan_years_anom[2056.25 ] = 'tiny_dot_ML'    
     pan_years_anom[2056.5 ] = 'tiny_dot_TL'    
+    pan_years_anom[2056.75 ] = 'tiny_dot_ML'    
     pan_years_anom[2057  ] = 'tiny_dot_BL' 
     pan_years_anom[2057.25 ] = 'tiny_dot_ML'    
     pan_years_anom[2058] = 'big_b'   
@@ -2518,7 +2523,7 @@ def iterate_daily_plots(
         clim_range=[1976,1985], 
         field='thetao_con', 
         plot_every_days=9,
-        no_new_plots=False):
+        ):
 
     nc = Dataset(fn, 'r')
 
@@ -2537,9 +2542,9 @@ def iterate_daily_plots(
 
         if dcy >= 2069.95:
             plot_every_days_ = int(plot_every_days/3.) # 3x slower final year.
-        if dcy > 2070. + 11./12.:
+        if dcy > 2070. + 11./12. or plot_every_days_ == 0:
             plot_every_days_ = 1
- 
+
         time_delta = dt-cftime.DatetimeGregorian(1976, 1, 1, 12., 0, 0, 0)
         if time_delta.days % plot_every_days_: 
             continue
@@ -2550,7 +2555,7 @@ def iterate_daily_plots(
         #clim_dat.close()
 
         # Make Daily_plot.
-        img_fn = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat, no_new_plots=no_new_plots)
+        img_fn = daily_plot(nc, t, date_key, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, clim_dat=clim_dat) # no_new_plots=no_new_plots)
 
         if img_fn in [False, None]:
             continue
@@ -2808,7 +2813,7 @@ def make_daily_plots(
         model='CNRM',
         clim_range=[1976,1985],
         plot_every_days=global_plot_every_days, 
-        no_new_plots = False,
+        #no_new_plots = False,
 ):
     """
     Main tool for making daily plots.
@@ -2879,7 +2884,7 @@ def make_daily_plots(
     images = []
     for fn in sorted(temp_files): #reverse=True)[:]:
         #nc = Dataset(fn, 'r')
-        imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days, no_new_plots=no_new_plots)
+        imgs = iterate_daily_plots(fn, datas_dict, dates_dict, clim_stuff=clim_stuff, clim_range=clim_range, field='thetao_con', plot_every_days=plot_every_days ) #, no_new_plots=no_new_plots)
         images.extend(imgs)
         #nc.close()
 
