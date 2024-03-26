@@ -14,10 +14,8 @@ ffmpeg  command is output, which can be copied and
 run to produce a mp4 video file. 
 
 
-
 The Audio is generated though EarthSystemMusic2:
 https://github.com/ledm/earthsystemmusic2
-
 
 The `esm2.py` script passes an input yml file to 
 earthsystemmusic2 which generates a MIDI output.
@@ -29,5 +27,11 @@ VSTs in a DAW.
 The model data used is from the Mission Atlantic Project.
 
 
+`calculate_timeseries.py`
+-------------------------
 
+The crux of the animation is performed by calculating the panning value between two using static target image locations.
+The function that does the work is `calc_midoint`.
 
+The dictionaries `pan_years_ts` and `pan_years_anom` includes the central lat, lon, and the globe axes dimensions.  
+The globe axes dimensions are set in the pan dictionary.
